@@ -1,0 +1,5544 @@
+
+<!DOCTYPE html>
+
+<html lang="vi">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>DNT KARATE DATASPORT - Hệ Thống Quản Lý Giải Đấu WKF</title>
+
+    
+
+    <link rel="icon" type="image/png" href="logo.png">
+
+    <link rel="shortcut icon" type="image/png" href="logo.png">
+
+
+
+    <!-- Tailwind CSS & Font Awesome -->
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    
+
+    <!-- Excel, Canvas & PDF Libraries -->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+
+
+    <!-- Socket.io for LAN -->
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+
+
+    <style>
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc !important; color: #1e293b !important; }
+
+        .sd-bracket-card { width: 200px !important; min-width: 200px !important; font-size: 10px; position: relative; cursor: pointer; z-index: 2; display: flex; flex-direction: column; gap: 4px; margin-right: 25px; }
+
+        .sd-row { height: 28px !important; min-height: 28px !important; max-height: 28px !important; display: flex !important; align-items: center !important; justify-content: space-between !important; border: 1px solid; padding: 0 10px !important; position: relative !important; background-color: #ffffff !important; box-sizing: border-box !important; overflow: hidden !important; }
+
+        .sd-color-bar { width: 6px !important; min-width: 6px !important; height: 16px !important; margin-right: 8px !important; border-radius: 2px; flex-shrink: 0 !important; }
+
+        .sd-row-aka .sd-color-bar { background-color: #dc2626; }
+
+        .sd-row-ao .sd-color-bar { background-color: #2563eb; }
+
+        .sd-row .sd-name-text { display: block !important; font-size: 12px !important; font-weight: 900 !important; color: #0f172a !important; line-height: 28px !important; height: 28px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; flex-grow: 1 !important; }
+
+        .sd-row-aka { border-color: #dc2626; background: linear-gradient(to right, #fee2e2 0%, #ffffff 90%) !important; }
+
+        .sd-row-ao { border-color: #2563eb; background: linear-gradient(to right, #dbeafe 0%, #ffffff 90%) !important; }
+
+        .bracket-rounds-wrapper { display: flex; align-items: stretch; justify-content: flex-start; position: relative; width: 100%; padding: 10px; gap: 40px; }
+
+        .bracket-round-column { display: flex; flex-direction: column; justify-content: space-around; position: relative; min-width: 220px; }
+
+        .bracket-match-wrapper { position: relative; margin: 10px 0; display: flex; align-items: center; z-index: 2; }
+
+        #bracket-container { overflow-x: auto !important; overflow-y: hidden !important; white-space: nowrap; padding-bottom: 10px; }
+
+        .bracket-page { width: 100%; min-height: 520px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; background: #ffffff; position: relative; }
+
+        .senshu-badge { background-color: #eab308; color: #000; font-size: 9px; font-weight: 900; padding: 1px 4px; border-radius: 4px; margin-left: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+
+
+        .bracket-round-column:not(:last-child) .bracket-match-wrapper::after {
+
+            content: ''; position: absolute; right: -25px; top: 50%; width: 25px; height: 2px; background-color: #cbd5e1; z-index: 1;
+
+        }
+
+        .bracket-round-column:not(:last-child) .bracket-match-wrapper.is-pair-top::before {
+
+            content: ''; position: absolute; right: -25px; top: 50%; width: 2px; height: calc(100% + 20px); background-color: #cbd5e1; z-index: 1;
+
+        }
+
+        @keyframes blink-aka { 0% { opacity: 1; border-color: #dc2626; box-shadow: 0 0 35px rgba(220, 38, 38, 0.9); } 50% { opacity: 0.2; border-color: #1e293b; box-shadow: none; } 100% { opacity: 1; border-color: #dc2626; box-shadow: 0 0 35px rgba(220, 38, 38, 0.9); } }
+
+        @keyframes blink-ao { 0% { opacity: 1; border-color: #2563eb; box-shadow: 0 0 35px rgba(37, 99, 235, 0.9); } 50% { opacity: 0.2; border-color: #1e293b; box-shadow: none; } 100% { opacity: 1; border-color: #2563eb; box-shadow: 0 0 35px rgba(37, 99, 235, 0.9); } }
+
+        .winner-blink-aka { animation: blink-aka 1s infinite ease-in-out; border: 4px solid #dc2626 !important; }
+
+        .winner-blink-ao { animation: blink-ao 1s infinite ease-in-out; border: 4px solid #2563eb !important; }
+
+    </style>
+
+</head>
+
+<body class="min-h-screen flex flex-col">
+
+
+
+    <!-- ROLE SELECTION MODAL -->
+
+    <div id="role-selection-modal" class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+
+        <div class="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl text-center space-y-6 border-t-4 border-red-600">
+
+            <div class="flex justify-center mb-2">
+
+                <div class="w-24 h-24 rounded-full bg-white border-2 border-red-600 flex items-center justify-center p-1 shadow-md overflow-hidden">
+
+                    <img id="modal-app-logo" src="logo.png" alt="Logo" class="w-full h-full object-contain" onerror="this.src='logo.png'">
+
+                </div>
+
+            </div>
+
+            <div>
+
+                <h2 class="text-2xl font-black text-slate-800">DNT KARATE DATASPORT</h2>
+
+                <p class="text-sm text-slate-500 mt-1">Hệ Thống Quản Lý Giải Đấu & Scoreboard WKF</p>
+
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 pt-2">
+
+                <button onclick="selectRole('btc')" class="bg-red-600 hover:bg-red-700 text-white p-4 rounded-xl font-bold flex flex-col items-center space-y-2 transition shadow-lg cursor-pointer">
+
+                    <i class="fa-solid fa-crown text-2xl text-yellow-300"></i>
+
+                    <span>Ban Tổ Chức</span>
+
+                </button>
+
+                <button onclick="selectRole('secretary')" class="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl font-bold flex flex-col items-center space-y-2 transition shadow-lg cursor-pointer">
+
+                    <i class="fa-solid fa-laptop-file text-2xl text-blue-200"></i>
+
+                    <span>Thư Ký Thảm</span>
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- LAN MODAL -->
+
+    <div id="lan-modal" class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 border-t-4 border-emerald-600 relative">
+
+            <div class="flex justify-between items-center border-b pb-3">
+
+                <h3 class="text-lg font-black text-slate-800"><i class="fa-solid fa-network-wired text-emerald-600 mr-2"></i> Kết Nối Trực Tiếp Wi-Fi / LAN</h3>
+
+                <button onclick="closeLanModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl cursor-pointer">&times;</button>
+
+            </div>
+
+            <div class="space-y-4 text-sm">
+
+                <div class="bg-amber-50 border-2 border-amber-300 p-3 rounded-xl">
+
+                    <span class="text-xs font-bold text-amber-800 uppercase">IP của máy này (Dành cho máy BTC):</span>
+
+                    <div id="popup-server-ip" class="text-xl font-mono font-black text-red-600 mt-1">127.0.0.1</div>
+
+                </div>
+
+                <div class="bg-blue-50 border-2 border-blue-300 p-3 rounded-xl space-y-2">
+
+                    <span class="text-xs font-bold text-blue-800 uppercase">Nhập IP Máy Ban Tổ Chức (Dành cho Thư Ký):</span>
+
+                    <div class="flex space-x-2">
+
+                        <input type="text" id="popup-input-server-ip" placeholder="Ví dụ: 192.168.1.15" class="border-2 border-blue-200 rounded-lg px-3 py-1.5 text-sm font-bold font-mono outline-none flex-1 bg-white text-slate-800">
+
+                        <button onclick="connectAsSecretaryFromPopup()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-lg font-bold shadow cursor-pointer">Kết Nối</button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- MODAL CHỌN NỘI DUNG XUẤT THÀNH TÍCH -->
+
+    <div id="export-result-modal" class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+
+        <div class="bg-white rounded-2xl p-6 max-w-2xl w-full shadow-2xl space-y-4 border-t-4 border-red-600 max-h-[90vh] flex flex-col">
+
+            <div class="flex justify-between items-center border-b pb-3">
+
+                <h3 class="text-lg font-black text-slate-800"><i class="fa-solid fa-file-pdf text-red-600 mr-2"></i> Chọn Nội Dung Xuất Báo Cáo Thành Tích</h3>
+
+                <button onclick="closeExportResultModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl cursor-pointer">&times;</button>
+
+            </div>
+
+            <div class="flex justify-between items-center text-xs bg-slate-50 p-2 rounded-lg border">
+
+                <span class="text-slate-500 italic">💡 Nội dung đã đánh hiển thị rõ, nội dung chưa đánh bị làm mờ.</span>
+
+                <div class="space-x-2">
+
+                    <button onclick="toggleModalSelectAll(true)" class="text-blue-600 font-bold hover:underline cursor-pointer">Chọn tất cả</button>
+
+                    <span>|</span>
+
+                    <button onclick="toggleModalSelectAll(false)" class="text-slate-500 font-bold hover:underline cursor-pointer">Bỏ chọn tất cả</button>
+
+                </div>
+
+            </div>
+
+            <div class="overflow-y-auto flex-1 max-h-[50vh] border rounded-lg">
+
+                <table class="w-full text-left border-collapse text-xs">
+
+                    <thead class="bg-slate-100 sticky top-0">
+
+                        <tr class="border-b text-slate-700">
+
+                            <th class="p-2.5 w-12 text-center">Chọn</th>
+
+                            <th class="p-2.5">Tên Nội Dung</th>
+
+                            <th class="p-2.5">Trạng Thái</th>
+
+                            <th class="p-2.5">HCV (Vàng)</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="export-result-modal-tbody" class="divide-y text-slate-700"></tbody>
+
+                </table>
+
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-2 border-t">
+
+                <button onclick="closeExportResultModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl font-bold text-xs cursor-pointer">Hủy</button>
+
+                <button onclick="confirmDownloadSelectedPDF()" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl font-bold text-xs shadow cursor-pointer">Xác Nhận Tải PDF</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- SECRETARY EMPTY SCREEN -->
+
+    <div id="secretary-empty-screen" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-40 hidden flex items-center justify-center p-4">
+
+        <div class="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl text-center space-y-6 border-t-4 border-blue-600">
+
+            <div class="inline-block p-1 bg-white text-blue-600 rounded-full w-24 h-24 mx-auto flex items-center justify-center overflow-hidden border-2 border-blue-600 shadow-md">
+
+                <img id="secretary-app-logo" src="logo.png" alt="Logo" class="w-full h-full object-contain" onerror="this.src='logo.png'">
+
+            </div>
+
+            <div>
+
+                <h2 class="text-2xl font-black text-slate-800">HỆ THỐNG THƯ KÝ THẢM ĐẤU</h2>
+
+                <p class="text-sm text-slate-500 mt-1">Kết nối Wi-Fi tới máy BTC để đồng bộ trực tiếp hoặc tải file dữ liệu.</p>
+
+            </div>
+
+            <div class="pt-2 flex flex-col gap-3">
+
+                <button onclick="openLanModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3.5 rounded-xl font-bold shadow-lg inline-flex items-center justify-center space-x-2 transition cursor-pointer">
+
+                    <i class="fa-solid fa-network-wired text-lg"></i>
+
+                    <span>Kết Nối Wi-Fi / LAN Trực Tiếp</span>
+
+                </button>
+
+                <label class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow cursor-pointer inline-flex items-center justify-center space-x-2 transition text-xs">
+
+                    <i class="fa-solid fa-file-arrow-up"></i>
+
+                    <span>Hoặc Tải Lên File Dữ Liệu (.json)</span>
+
+                    <input type="file" accept=".json" onchange="importDataBySecretary(event)" class="hidden">
+
+                </label>
+
+            </div>
+
+            <div class="border-t pt-4">
+
+                <button onclick="changeRole()" class="text-xs text-slate-500 hover:text-red-600 font-semibold underline cursor-pointer">
+
+                    <i class="fa-solid fa-right-left mr-1"></i> Quay lại chọn vai trò
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- MAIN HEADER -->
+
+    <header class="bg-white border-b border-slate-200 text-slate-800 shadow-sm py-3 px-6 flex justify-between items-center no-print">
+
+        <div class="flex items-center space-x-4">
+
+            <div class="flex items-center bg-red-50 rounded-full pr-4 pl-1.5 py-1 shadow-sm border border-red-200">
+
+                <div class="w-10 h-10 rounded-full bg-white border-2 border-red-600 flex items-center justify-center overflow-hidden p-0.5 shadow-sm">
+
+                    <img id="header-app-logo" src="logo.png" alt="Logo" class="w-full h-full object-contain" onerror="this.src='logo.png'">
+
+                </div>
+
+                <span class="ml-2 font-black text-red-600 uppercase tracking-wide text-sm">DNT DATASPORT</span>
+
+            </div>
+
+            <div class="hidden md:block">
+
+                <h1 class="text-base font-bold tracking-wide text-slate-800" id="header-tournament-title">GIẢI KARATE</h1>
+
+                <p class="text-xs text-slate-500" id="header-role-title">Hệ thống Quản Lý Giải Đấu</p>
+
+            </div>
+
+        </div>
+
+        <div class="flex items-center space-x-3">
+
+            <button onclick="openLanModal()" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-xs px-3 py-1.5 rounded-lg border border-emerald-300 font-semibold transition shadow-sm cursor-pointer">
+
+                <i class="fa-solid fa-network-wired mr-1"></i> <span id="connection-status-text">Kết nối Wi-Fi</span>
+
+            </button>
+
+            <button onclick="changeRole()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-3 py-1.5 rounded-lg border border-slate-300 font-semibold transition cursor-pointer">
+
+                <i class="fa-solid fa-right-left mr-1"></i> Đổi Vai Trò
+
+            </button>
+
+            <div class="text-sm bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 font-medium">
+
+                <i class="fa-solid fa-calendar-day mr-2 text-red-600"></i> <span id="current-date"></span>
+
+            </div>
+
+        </div>
+
+    </header>
+
+
+
+    <!-- NAVIGATION TABS -->
+
+    <nav class="bg-white shadow-sm border-b border-slate-200 px-6 flex overflow-x-auto space-x-2 py-2.5 no-print" id="main-nav"></nav>
+
+
+
+    <!-- MAIN BODY CONTAINER -->
+
+    <main class="flex-1 p-6 max-w-7xl w-full mx-auto">
+
+        
+
+        <!-- TAB 1: CÀI ĐẶT -->
+
+        <div id="tab-1" class="tab-content space-y-6">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                <div class="bg-amber-50 border-2 border-amber-300 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
+
+                    <div>
+
+                        <h3 class="text-xs font-black text-amber-800 uppercase tracking-wider"><i class="fa-solid fa-network-wired mr-1"></i> Địa chỉ IP Máy Chủ (Ban Tổ Chức)</h3>
+
+                        <p class="text-xs text-amber-700 mt-0.5">Cung cấp số này cho máy Thư Ký kết nối trực tiếp:</p>
+
+                        <div id="server-ip-display" class="text-2xl font-mono font-black text-red-600 mt-1">127.0.0.1</div>
+
+                    </div>
+
+                    <button onclick="copyServerIP()" class="mt-4 bg-amber-600 hover:bg-amber-700 text-white text-xs px-4 py-2 rounded-xl font-bold shadow transition self-start cursor-pointer">
+
+                        <i class="fa-solid fa-copy mr-1"></i> Sao chép IP
+
+                    </button>
+
+                </div>
+
+
+
+                <div class="bg-blue-50 border-2 border-blue-300 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
+
+                    <div>
+
+                        <h3 class="text-xs font-black text-blue-800 uppercase tracking-wider"><i class="fa-solid fa-laptop-file mr-1"></i> Kết Nối Đến Máy Chủ (Dành cho Thư Ký)</h3>
+
+                        <p class="text-xs text-blue-700 mt-0.5">Nhập địa chỉ IP của máy Ban Tổ Chức vào ô dưới đây:</p>
+
+                        <div class="flex space-x-2 mt-2">
+
+                            <input type="text" id="input-server-ip" placeholder="Ví dụ: 192.168.1.15" class="border-2 border-blue-200 rounded-xl px-3 py-2 text-sm font-bold font-mono outline-none flex-1 bg-white text-slate-800">
+
+                            <button onclick="connectAsSecretary()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-xl font-bold shadow transition cursor-pointer">
+
+                                Kết Nối
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+
+                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center">
+
+                    <i class="fa-solid fa-gear text-red-600 mr-2"></i> Thông Tin Giải Đấu & Logo
+
+                </h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+
+                    <div>
+
+                        <label class="block text-sm font-medium text-slate-600 mb-1">Tên Giải Đấu Chính Thức</label>
+
+                        <div class="flex space-x-2">
+
+                            <input type="text" id="tournament-title-input" value="GIẢI KARATE MỞ RỘNG" class="w-full border rounded-lg px-3 py-2 outline-none text-sm bg-white text-slate-800 font-bold">
+
+                            <button onclick="updateTournamentTitle()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow cursor-pointer">Đổi Tên</button>
+
+                        </div>
+
+                    </div>
+
+                    <div>
+
+                        <label class="block text-sm font-medium text-slate-600 mb-1">Cập nhật Logo Giải Đấu</label>
+
+                        <label class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow cursor-pointer inline-flex items-center space-x-2 w-full justify-center">
+
+                            <i class="fa-solid fa-image"></i>
+
+                            <span>Tải Ảnh Logo Mới (PNG/JPG)</span>
+
+                            <input type="file" accept="image/*" onchange="uploadCustomLogo(event)" class="hidden">
+
+                        </label>
+
+                    </div>
+
+
+
+                    <div class="col-span-2 pt-2 border-t border-slate-200 flex flex-wrap gap-3">
+
+                        <button onclick="createNewTournament()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold shadow cursor-pointer">
+
+                            <i class="fa-solid fa-plus-circle mr-1"></i> Tạo Giải Đấu Mới
+
+                        </button>
+
+                        <button onclick="exportFullBackupJSON()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold shadow cursor-pointer">
+
+                            <i class="fa-solid fa-floppy-disk mr-1"></i> Sao Lưu Toàn Bộ (Backup JSON)
+
+                        </button>
+
+                        <label class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold shadow cursor-pointer border border-slate-300">
+
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Khôi Phục Dữ Liệu (Restore)
+
+                            <input type="file" accept=".json" onchange="restoreFullBackupJSON(event)" class="hidden">
+
+                        </label>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- PHẦN THÊM NỘI DUNG THI ĐẤU -->
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+
+                <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center">
+
+                        <i class="fa-solid fa-plus-circle text-red-600 mr-2"></i> Thêm Hạng Cân / Nội Dung Thi Đấu
+
+                    </h2>
+
+                    <div class="flex space-x-2">
+
+                        <button onclick="downloadContentTemplateExcel()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold shadow border border-slate-300 cursor-pointer">
+
+                            <i class="fa-solid fa-file-arrow-down mr-1"></i><span>Tải Mẫu Excel Nội Dung</span>
+
+                        </button>
+
+                        <label class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-bold shadow cursor-pointer">
+
+                            <i class="fa-solid fa-file-excel mr-1"></i><span>Import Excel Nội Dung</span>
+
+                            <input type="file" accept=".xlsx, .xls" onchange="importContentsFromExcel(event)" class="hidden">
+
+                        </label>
+
+                    </div>
+
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+
+                    <div>
+
+                        <label class="block text-sm font-medium text-slate-700 mb-1 font-bold">Tên Nội Dung</label>
+
+                        <input type="text" id="content-name" placeholder="Ví dụ: Kumite cá nhân Nam dưới 60kg" class="w-full border-2 border-red-400 rounded-lg px-3 py-2 outline-none text-sm bg-white text-slate-900 font-bold focus:border-red-600 shadow-sm">
+
+                    </div>
+
+                    <div>
+
+                        <label class="block text-sm font-medium text-slate-700 mb-1 font-bold">Hình Thức</label>
+
+                        <select id="content-category" class="w-full border-2 border-slate-300 rounded-lg px-3 py-2 outline-none text-sm font-bold bg-white text-slate-900 focus:border-red-600">
+
+                            <option value="Kumite cá nhân">Kumite cá nhân</option>
+
+                            <option value="Kumite đồng đội">Kumite đồng đội</option>
+
+                            <option value="Kata cá nhân">Kata cá nhân</option>
+
+                            <option value="Kata đồng đội">Kata đồng đội</option>
+
+                        </select>
+
+                    </div>
+
+                    <div>
+
+                        <button onclick="addNewContentSafe()" class="w-full bg-red-600 text-white font-black py-2.5 rounded-lg hover:bg-red-700 text-sm shadow cursor-pointer uppercase transition transform active:scale-95">Thêm Nội Dung</button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Danh Sách Nội Dung Thi Đấu</h2>
+
+                <table class="w-full text-left border-collapse text-sm">
+
+                    <thead>
+
+                        <tr class="border-b text-slate-500">
+
+                            <th class="p-3">STT</th>
+
+                            <th class="p-3">Tên Nội Dung</th>
+
+                            <th class="p-3">Hình Thức</th>
+
+                            <th class="p-3">Thảm</th>
+
+                            <th class="p-3 text-center">Xóa</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="content-table-body" class="divide-y text-slate-700 font-semibold"></tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- TAB 1.5: QUẢN LÝ THẢM -->
+
+        <div id="tab-mat" class="tab-content hidden space-y-6">
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+
+                <h2 class="text-lg font-bold text-slate-800 mb-2 flex items-center">
+
+                    <i class="fa-solid fa-map-location-dot text-red-600 mr-2"></i> Quản Lý Phân Bổ Thảm Đấu
+
+                </h2>
+
+                <p class="text-sm text-slate-500 mb-6">Phân chia các hạng cân vào các thảm (Thảm 1, Thảm 2, Thảm 3).</p>
+
+                <table class="w-full text-left border-collapse text-sm">
+
+                    <thead>
+
+                        <tr class="border-b text-slate-500">
+
+                            <th class="p-3">STT</th>
+
+                            <th class="p-3">Tên Hạng Cân / Nội Dung</th>
+
+                            <th class="p-3">Hình Thức</th>
+
+                            <th class="p-3">Thảm Thi Đấu</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="mat-table-body" class="divide-y text-slate-700"></tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- TAB 2: VĐV & ĐỘI -->
+
+        <div id="tab-2" class="tab-content hidden space-y-6">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                <!-- ĐĂNG KÝ CÁ NHÂN -->
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+
+                    <div class="flex justify-between items-center flex-wrap gap-2">
+
+                        <h2 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-user-plus text-red-600 mr-2"></i> Đăng Ký Cá Nhân</h2>
+
+                        <div class="flex space-x-2">
+
+                            <button onclick="downloadAthleteTemplateExcel()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold shadow border border-slate-300 cursor-pointer">
+
+                                <i class="fa-solid fa-file-arrow-down"></i> <span>Tải Mẫu VĐV</span>
+
+                            </button>
+
+                            <label class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow cursor-pointer">
+
+                                <i class="fa-solid fa-file-excel"></i> <span>Import Excel</span>
+
+                                <input type="file" accept=".xlsx, .xls" onchange="importAthletesFromExcel(event)" class="hidden">
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+                    <div class="space-y-3 text-sm">
+
+                        <div class="grid grid-cols-2 gap-3">
+
+                            <div>
+
+                                <label class="block font-medium text-slate-600 mb-1">Họ và Tên VĐV</label>
+
+                                <input type="text" id="ath-name" placeholder="Nguyễn Văn A" class="w-full border rounded-lg px-3 py-2 outline-none bg-white text-slate-900 font-bold">
+
+                            </div>
+
+                            <div>
+
+                                <label class="block font-medium text-slate-600 mb-1">Năm Sinh</label>
+
+                                <input type="text" id="ath-dob" placeholder="2005" class="w-full border rounded-lg px-3 py-2 outline-none bg-white text-slate-900 font-bold">
+
+                            </div>
+
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+
+                            <div>
+
+                                <label class="block font-medium text-slate-600 mb-1">Giới tính</label>
+
+                                <select id="ath-gender" class="w-full border rounded-lg px-3 py-2 outline-none bg-white text-slate-900 font-bold">
+
+                                    <option value="Nam">Nam</option>
+
+                                    <option value="Nữ">Nữ</option>
+
+                                </select>
+
+                            </div>
+
+                            <div>
+
+                                <label class="block font-medium text-slate-600 mb-1">Cân nặng (kg)</label>
+
+                                <input type="number" id="ath-weight" placeholder="60" class="w-full border rounded-lg px-3 py-2 outline-none bg-white text-slate-900 font-bold">
+
+                            </div>
+
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+
+                            <div>
+
+                                <label class="block font-medium text-slate-600 mb-1">Nội Dung Cá Nhân</label>
+
+                                <select id="ath-content" class="w-full border rounded-lg px-3 py-2 outline-none bg-white text-slate-900 font-bold"></select>
+
+                            </div>
+
+                            <div>
+
+                                <label class="block font-medium text-slate-600 mb-1">Đơn Vị (CLB)</label>
+
+                                <input type="text" id="ath-club" placeholder="ĐOÀN LÂM ĐỒNG" class="w-full border rounded-lg px-3 py-2 outline-none bg-white text-slate-900 font-bold">
+
+                            </div>
+
+                        </div>
+
+                        <div class="flex items-center space-x-2 pt-1">
+
+                            <input type="checkbox" id="ath-is-seed" class="w-4 h-4 text-red-600 rounded">
+
+                            <label for="ath-is-seed" class="text-xs font-bold text-red-600 cursor-pointer">Đánh dấu Hạt Giống (Seed)</label>
+
+                        </div>
+
+                        <button onclick="addNewAthlete()" class="w-full bg-red-600 text-white font-medium py-2 rounded-lg hover:bg-red-700 shadow cursor-pointer">Lưu Vận Động Viên</button>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- ĐĂNG KÝ ĐỒNG ĐỘI (CHÍNH THỨC & DỰ BỊ THEO CHUẨN WKF) -->
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+
+                    <div class="flex justify-between items-center flex-wrap gap-2">
+
+                        <h2 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-users-rectangle text-blue-600 mr-2"></i> Đăng Ký Đồng Đội (WKF)</h2>
+
+                        <div class="flex space-x-2">
+
+                            <button onclick="downloadTeamTemplateExcel()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold shadow border border-slate-300 cursor-pointer">
+
+                                <i class="fa-solid fa-file-arrow-down"></i> <span>Tải Mẫu Đội</span>
+
+                            </button>
+
+                            <label class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow cursor-pointer">
+
+                                <i class="fa-solid fa-file-excel"></i> <span>Import Excel</span>
+
+                                <input type="file" accept=".xlsx, .xls" onchange="importTeamsFromExcel(event)" class="hidden">
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+                    <div class="space-y-3 text-sm">
+
+                        <div class="grid grid-cols-2 gap-3">
+
+                            <div>
+
+                                <label class="block font-medium text-slate-600 mb-1">Tên Đội / Đoàn</label>
+
+                                <input type="text" id="team-unit" placeholder="ĐOÀN LÂM ĐỒNG 1" class="w-full border rounded-lg px-3 py-2 outline-none bg-white text-slate-900 font-bold">
+
+                            </div>
+
+                            <div>
+
+                                <label class="block font-medium text-slate-600 mb-1">Nội Dung Đồng Đội</label>
+
+                                <select id="team-content" class="w-full border rounded-lg px-3 py-2 outline-none font-bold text-blue-600 bg-white"></select>
+
+                            </div>
+
+                        </div>
+
+                        <div>
+
+                            <label class="block font-medium text-slate-600 mb-1">VĐV Thi Đấu Chính Thức (Nhập theo thứ tự ra sân 1, 2, 3... phân cách bằng dấu phẩy)</label>
+
+                            <textarea id="team-main-members" rows="2" placeholder="Nguyễn Văn A, Trần Văn B, Lê Văn C" class="w-full border rounded-lg px-3 py-2 outline-none text-xs bg-white text-slate-900 font-bold"></textarea>
+
+                        </div>
+
+                        <div>
+
+                            <label class="block font-medium text-slate-600 mb-1">VĐV Dự Bị (Tùy chọn: Nam tối đa 2, Nữ tối đa 1)</label>
+
+                            <input type="text" id="team-sub-members" placeholder="Phạm Văn D, Hoàng Văn E" class="w-full border rounded-lg px-3 py-2 outline-none text-xs bg-white text-slate-900 font-bold">
+
+                        </div>
+
+                        <div class="flex items-center space-x-2 pt-1">
+
+                            <input type="checkbox" id="team-is-seed" class="w-4 h-4 text-blue-600 rounded">
+
+                            <label for="team-is-seed" class="text-xs font-bold text-blue-600 cursor-pointer">Đội Hạt Giống (Seed)</label>
+
+                        </div>
+
+                        <button onclick="addNewTeam()" class="w-full bg-blue-600 text-white font-medium py-2 rounded-lg hover:bg-blue-700 shadow cursor-pointer">Lưu Đội Đồng Đội</button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+
+                    <div class="flex justify-between items-center mb-3">
+
+                        <h2 class="text-md font-bold text-slate-800">Danh Sách Cá Nhân (<span id="total-athletes-count">0</span>)</h2>
+
+                        <div class="flex space-x-2">
+
+                            <button onclick="exportAthletesToExcel()" class="bg-emerald-600 text-white px-2.5 py-1 rounded text-xs font-bold shadow cursor-pointer">Xuất Excel</button>
+
+                            <input type="text" id="search-athlete-input" onkeyup="renderAll()" placeholder="Tìm VĐV..." class="text-xs border px-2 py-1 rounded w-32 outline-none bg-white text-slate-800">
+
+                        </div>
+
+                    </div>
+
+                    <div class="overflow-x-auto max-h-64">
+
+                        <table class="w-full text-left border-collapse text-xs">
+
+                            <thead><tr class="border-b text-slate-500"><th class="p-2">Họ Tên</th><th class="p-2">Năm Sinh</th><th class="p-2">Nội Dung</th><th class="p-2">Đơn Vị</th><th class="p-2 text-center">Xóa</th></tr></thead>
+
+                            <tbody id="athlete-table-body" class="divide-y text-slate-700"></tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+
+                    <div class="flex justify-between items-center mb-3">
+
+                        <h2 class="text-md font-bold text-slate-800">Danh Sách Đồng Đội (<span id="total-teams-count">0</span>)</h2>
+
+                        <div class="flex space-x-2">
+
+                            <button onclick="exportTeamsToExcel()" class="bg-emerald-600 text-white px-2.5 py-1 rounded text-xs font-bold shadow cursor-pointer">Xuất Excel</button>
+
+                            <input type="text" id="search-team-input" onkeyup="renderAll()" placeholder="Tìm Đội..." class="text-xs border px-2 py-1 rounded w-32 outline-none bg-white text-slate-800">
+
+                        </div>
+
+                    </div>
+
+                    <div class="overflow-x-auto max-h-64">
+
+                        <table class="w-full text-left border-collapse text-xs">
+
+                            <thead><tr class="border-b text-slate-500"><th class="p-2">Tên Đội / Đoàn</th><th class="p-2">Nội Dung</th><th class="p-2">Chính Thức & Dự Bị</th><th class="p-2 text-center">Xóa</th></tr></thead>
+
+                            <tbody id="team-table-body" class="divide-y text-slate-700"></tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- TAB 3: SƠ ĐỒ NHÁNH -->
+
+        <div id="tab-3" class="tab-content hidden space-y-6">
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 no-print">
+
+                <div>
+
+                    <h2 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-sitemap text-red-600 mr-2"></i> Sơ Đồ Nhánh Thi Đấu</h2>
+
+                    <p class="text-sm text-slate-500">💡 Hỗ trợ bốc thăm tự động chuẩn WKF cho cả Cá nhân và Đồng đội.</p>
+
+                </div>
+
+                <div class="flex items-center space-x-3 flex-wrap gap-2">
+
+                    <select id="filter-mat-select" onchange="renderContentBoxes()" class="border rounded-lg px-3 py-2 text-sm font-bold outline-none bg-white text-slate-800">
+
+                        <option value="ALL">Tất cả các thảm</option>
+
+                        <option value="Thảm 1">Thảm 1</option>
+
+                        <option value="Thảm 2">Thảm 2</option>
+
+                        <option value="Thảm 3">Thảm 3</option>
+
+                    </select>
+
+                    <button onclick="openExportModal()" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow hover:bg-blue-700 cursor-pointer">
+
+                        <i class="fa-solid fa-file-export mr-1"></i> Xem & Xuất Sơ Đồ
+
+                    </button>
+
+                    <button onclick="generateAllDraws()" class="bg-red-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow hover:bg-red-700 cursor-pointer">
+
+                        Bốc Thăm Toàn Giải
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+
+                <div id="content-boxes-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- EXPORT BRACKET MODAL -->
+
+        <div id="export-bracket-modal" class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+
+            <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 border-t-4 border-blue-600">
+
+                <div class="flex justify-between items-center border-b border-slate-200 pb-3">
+
+                    <h3 class="text-lg font-black text-slate-800"><i class="fa-solid fa-file-export text-blue-600 mr-2"></i> Chọn Hình Thức Xem Sơ Đồ</h3>
+
+                    <button onclick="closeExportModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer">&times;</button>
+
+                </div>
+
+                <div class="space-y-3 text-sm">
+
+                    <div>
+
+                        <label class="block font-medium text-slate-600 mb-1">Theo Thảm Đấu</label>
+
+                        <select id="export-modal-mat" class="w-full border rounded-lg px-3 py-2 font-bold text-blue-600 bg-blue-50 outline-none">
+
+                            <option value="Thảm 1">Thảm 1</option>
+
+                            <option value="Thảm 2">Thảm 2</option>
+
+                            <option value="Thảm 3">Thảm 3</option>
+
+                        </select>
+
+                        <button onclick="printBracketsByMat()" class="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg shadow text-xs cursor-pointer">Mở Sơ Đồ Thảm Này</button>
+
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-200">
+
+                        <label class="block font-medium text-slate-600 mb-1">Theo Từng Nội Dung</label>
+
+                        <select id="export-modal-content" class="w-full border rounded-lg px-3 py-2 font-bold text-red-600 bg-red-50 outline-none"></select>
+
+                        <button onclick="printBracketBySingleContent()" class="w-full mt-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg shadow text-xs cursor-pointer">Mở Sơ Đồ Nội Dung Này</button>
+
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-200">
+
+                        <button onclick="printAllBrackets()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 rounded-lg shadow text-xs cursor-pointer">Mở Toàn Bộ Sơ Đồ Giải</button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- TAB BRACKET DETAIL -->
+
+        <div id="tab-bracket-detail" class="tab-content hidden space-y-6">
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center no-print flex-wrap gap-2">
+
+                <button onclick="switchTab(3)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-xs font-bold shadow border border-slate-300 cursor-pointer">
+
+                    <i class="fa-solid fa-arrow-left mr-1"></i><span>Quay lại Danh Sách</span>
+
+                </button>
+
+                <div class="flex space-x-2 flex-wrap gap-2">
+
+                    <button onclick="downloadBracketPDF(event)" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow flex items-center space-x-1 cursor-pointer">
+
+                        <i class="fa-solid fa-file-pdf"></i> <span id="btn-pdf-text">Tải File PDF Sơ Đồ</span>
+
+                    </button>
+
+                    <button onclick="downloadBracketWord()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow flex items-center space-x-1 cursor-pointer">
+
+                        <i class="fa-solid fa-file-word"></i> <span>Tải Word Về Máy</span>
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            
+
+            <div id="bracket-container" class="print-container bg-white p-6 rounded-xl shadow-sm border border-slate-200 min-h-[300px] overflow-x-auto relative"></div>
+
+        </div>
+
+
+
+        <!-- TAB 4: SCOREBOARD -->
+
+        <div id="tab-scoreboard" class="tab-content hidden space-y-6">
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 no-print">
+
+                <div class="flex items-center space-x-4 w-full md:w-auto flex-1">
+
+                    <div class="w-1/3">
+
+                        <label class="block text-xs font-bold text-slate-500 mb-1">1. Chọn Nội Dung</label>
+
+                        <select id="sb-select-content" onchange="onScoreboardContentChange()" class="w-full border rounded-lg px-3 py-2 text-sm font-bold outline-none text-red-600 bg-white">
+
+                            <option value="">-- Chọn Nội Dung --</option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="w-1/3">
+
+                        <label class="block text-xs font-bold text-slate-500 mb-1">2. Chọn Trận Đấu</label>
+
+                        <select id="sb-select-match" onchange="onScoreboardMatchChange()" class="w-full border rounded-lg px-3 py-2 text-sm font-bold outline-none text-blue-600 bg-white">
+
+                            <option value="">-- Chọn Trận --</option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="w-1/3">
+
+                        <label class="block text-xs font-bold text-slate-500 mb-1">3. Chế Độ Chấm Điểm</label>
+
+                        <select id="sb-mode-select" onchange="toggleScoreboardMode()" class="w-full border rounded-lg px-3 py-2 text-sm font-bold outline-none bg-white text-slate-900">
+
+                            <option value="kumite">Kumite (Đối Kháng)</option>
+
+                            <option value="kata">Kata (Chấm Điểm WKF)</option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+                <div class="flex items-center space-x-2">
+
+                    <button onclick="resetCurrentMatchScore()" class="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2.5 rounded-lg text-xs font-bold shadow flex items-center space-x-1.5 whitespace-nowrap cursor-pointer" title="Xóa toàn bộ tỉ số và lỗi của trận này">
+
+                        <i class="fa-solid fa-rotate-right"></i><span>Xóa Tỉ Số</span>
+
+                    </button>
+
+                    <button onclick="openPopupDisplay()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-xs font-bold shadow flex items-center space-x-2 whitespace-nowrap cursor-pointer">
+
+                        <i class="fa-solid fa-display text-yellow-300"></i><span>Mở Màn Hình Khán Giả</span>
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- KATA CONTROL -->
+
+            <div id="kata-control-section" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-2xl border-2 border-slate-200 shadow-md">
+
+                <div class="bg-red-50 p-5 rounded-2xl border-2 border-red-200 space-y-4">
+
+                    <div class="flex items-center space-x-2 border-b border-red-200 pb-2">
+
+                        <span class="w-4 h-4 rounded-full bg-red-600 inline-block shadow"></span>
+
+                        <h3 class="text-md font-black text-red-600 uppercase">AKA (ĐỎ)</h3>
+
+                    </div>
+
+                    <div class="space-y-1.5">
+
+                        <label class="block text-xs font-bold text-slate-600">Kata:</label>
+
+                        <input type="text" id="search-kata-aka" onkeyup="filterKataOptions('aka')" placeholder="Tìm kata..." class="w-full border rounded-lg px-3 py-2 text-sm outline-none bg-white text-slate-900">
+
+                        <select id="select-kata-aka" onchange="onKataSelected('aka')" class="w-full border rounded-lg px-3 py-2 text-sm font-bold outline-none mt-1 bg-white text-slate-900">
+
+                            <option value="">-- Chọn Kata --</option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="space-y-1">
+
+                        <label class="block text-xs font-bold text-slate-600">VĐV / Đội:</label>
+
+                        <select id="select-ath-aka" onchange="onAthleteSelectedForKata('aka')" class="w-full border rounded-lg px-3 py-2 text-sm font-bold outline-none bg-white text-slate-900"></select>
+
+                        <input type="text" id="display-ath-aka-name" readonly placeholder="HỌ TÊN VĐV AKA" class="w-full border rounded-lg px-3 py-2 text-sm font-extrabold bg-white text-red-600 mt-1">
+
+                    </div>
+
+                    <div class="flex items-center justify-center space-x-6 pt-3">
+
+                        <button onclick="updateScore('aka', -1, 'Trừ 1 điểm (-1)', 1)" class="w-12 h-12 bg-red-200 text-red-800 font-black text-2xl rounded-xl shadow flex items-center justify-center cursor-pointer">-</button>
+
+                        <span id="kata-score-aka" class="text-4xl font-black text-slate-800">0</span>
+
+                        <button onclick="updateScore('aka', 1, 'Cộng 1 điểm (+1)', 1)" class="w-12 h-12 bg-emerald-600 text-white font-black text-2xl rounded-xl shadow flex items-center justify-center cursor-pointer">+</button>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="bg-blue-50 p-5 rounded-2xl border-2 border-blue-200 space-y-4">
+
+                    <div class="flex items-center space-x-2 border-b border-blue-200 pb-2">
+
+                        <span class="w-4 h-4 rounded-full bg-blue-600 inline-block shadow"></span>
+
+                        <h3 class="text-md font-black text-blue-600 uppercase">AO (XANH)</h3>
+
+                    </div>
+
+                    <div class="space-y-1.5">
+
+                        <label class="block text-xs font-bold text-slate-600">Kata:</label>
+
+                        <input type="text" id="search-kata-ao" onkeyup="filterKataOptions('ao')" placeholder="Tìm kata..." class="w-full border rounded-lg px-3 py-2 text-sm outline-none bg-white text-slate-900">
+
+                        <select id="select-kata-ao" onchange="onKataSelected('ao')" class="w-full border rounded-lg px-3 py-2 text-sm font-bold outline-none mt-1 bg-white text-slate-900">
+
+                            <option value="">-- Chọn Kata --</option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="space-y-1">
+
+                        <label class="block text-xs font-bold text-slate-600">VĐV / Đội:</label>
+
+                        <select id="select-ath-ao" onchange="onAthleteSelectedForKata('ao')" class="w-full border rounded-lg px-3 py-2 text-sm font-bold outline-none bg-white text-slate-900"></select>
+
+                        <input type="text" id="display-ath-ao-name" readonly placeholder="HỌ TÊN VĐV AO" class="w-full border rounded-lg px-3 py-2 text-sm font-extrabold bg-white text-blue-600 mt-1">
+
+                    </div>
+
+                    <div class="flex items-center justify-center space-x-6 pt-3">
+
+                        <button onclick="updateScore('ao', -1, 'Trừ 1 điểm (-1)', 1)" class="w-12 h-12 bg-blue-200 text-blue-800 font-black text-2xl rounded-xl shadow flex items-center justify-center cursor-pointer">-</button>
+
+                        <span id="kata-score-ao" class="text-4xl font-black text-slate-800">0</span>
+
+                        <button onclick="updateScore('ao', 1, 'Cộng 1 điểm (+1)', 1)" class="w-12 h-12 bg-emerald-600 text-white font-black text-2xl rounded-xl shadow flex items-center justify-center cursor-pointer">+</button>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="col-span-1 md:col-span-2 pt-2">
+
+                    <button onclick="finishIndividualMatch()" class="w-full bg-cyan-700 hover:bg-cyan-600 text-white font-black py-3.5 rounded-xl shadow-lg text-base uppercase tracking-wider cursor-pointer">
+
+                        Gửi Kết Quả Về Sơ Đồ Thi Đấu
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- KUMITE ADMIN -->
+
+            <div id="kumite-control-section" class="space-y-4 pt-2">
+
+                <!-- KHU VỰC CHỌN THÀNH VIÊN ĐỒNG ĐỘI (CHỈ HIỂN THỊ KHI LÀ NỘI DUNG ĐỒNG ĐỘI) -->
+
+                <div id="team-matchup-selector-box" class="bg-indigo-50 border-2 border-indigo-300 p-4 rounded-2xl shadow-sm hidden space-y-3">
+
+                    <div class="flex justify-between items-center">
+
+                        <h3 class="text-xs font-black text-indigo-900 uppercase tracking-wide"><i class="fa-solid fa-users-rectangle mr-1 text-blue-600"></i> Chọn Thành Viên Thi Đấu Trận Đơn (Kumite Đồng Đội)</h3>
+
+                        <button onclick="resetTeamMatchScore()" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-xs font-bold shadow flex items-center space-x-1 cursor-pointer">
+
+                            <i class="fa-solid fa-rotate-right"></i><span>Xóa Tỉ Số Đồng Đội</span>
+
+                        </button>
+
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        <div class="bg-red-50 p-3 rounded-xl border border-red-200">
+
+                            <label class="block text-xs font-black text-red-700 mb-1">VĐV Đội Đỏ (AKA) ra sân trận này:</label>
+
+                            <select id="select-team-member-aka" class="w-full border-2 border-red-300 rounded-lg px-3 py-2 text-xs font-bold outline-none bg-white text-slate-900"></select>
+
+                        </div>
+
+                        <div class="bg-blue-50 p-3 rounded-xl border border-blue-200">
+
+                            <label class="block text-xs font-black text-blue-700 mb-1">VĐV Đội Xanh (AO) ra sân trận này:</label>
+
+                            <select id="select-team-member-ao" class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-xs font-bold outline-none bg-white text-slate-900"></select>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+
+                    <div class="space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-200 shadow-sm">
+
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+
+                            <div class="flex items-center space-x-2">
+
+                                <button onclick="startTimer()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow cursor-pointer">Start</button>
+
+                                <button onclick="pauseTimer()" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow cursor-pointer">Pause</button>
+
+                                <button onclick="resetTimer()" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow cursor-pointer">Reset</button>
+
+                            </div>
+
+                            <div class="flex items-center space-x-2 text-sm font-semibold">
+
+                                <span>Giây:</span>
+
+                                <button onclick="adjustTime(-10)" class="px-2 py-1 bg-slate-200 rounded font-bold cursor-pointer">-10s</button>
+
+                                <input type="number" id="input-custom-seconds" value="90" class="w-16 text-center border rounded font-mono font-bold text-sm py-1 bg-white text-slate-900">
+
+                                <button onclick="adjustTime(10)" class="px-2 py-1 bg-slate-200 rounded font-bold cursor-pointer">+10s</button>
+
+                                <button onclick="applyCustomTimer()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-bold shadow cursor-pointer">Set</button>
+
+                            </div>
+
+                        </div>
+
+
+
+                        <!-- AKA CONTROLS -->
+
+                        <div class="space-y-2 bg-red-50 p-3 rounded-xl border border-red-200">
+
+                            <div class="flex justify-between items-center">
+
+                                <div class="text-xs font-bold text-red-600 uppercase">Thao tác Đỏ (AKA)</div>
+
+                                <button onclick="declareWinner('aka')" class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded text-xs font-black shadow animate-pulse cursor-pointer">👑 ĐỎ THẮNG TRẬN NÀY</button>
+
+                            </div>
+
+                            <div class="flex flex-wrap gap-2 items-center">
+
+                                <button onclick="toggleSenshu('aka')" id="btn-ctrl-senshu-aka" class="bg-red-600 text-white px-3 py-2 rounded text-xs font-bold shadow cursor-pointer">Senshu</button>
+
+                                <span class="text-slate-300 font-bold">|</span>
+
+                                <button onclick="updateScore('aka', 3, 'Cộng Ippon (+3)', 3)" class="bg-red-600 text-white px-3 py-2 rounded text-xs font-bold shadow cursor-pointer">+3 Ippon</button>
+
+                                <button onclick="updateScore('aka', 2, 'Cộng Waza-ari (+2)', 2)" class="bg-red-600 text-white px-3 py-2 rounded text-xs font-bold shadow cursor-pointer">+2 Waza-ari</button>
+
+                                <button onclick="updateScore('aka', 1, 'Cộng Yuko (+1)', 1)" class="bg-red-600 text-white px-3 py-2 rounded text-xs font-bold shadow cursor-pointer">+1 Yuko</button>
+
+                                <span class="text-slate-300 font-bold">|</span>
+
+                                <button onclick="updateScore('aka', -3, 'Trừ 3 điểm (-3)', 3)" class="bg-red-200 text-red-800 px-2.5 py-2 rounded text-xs font-bold shadow cursor-pointer">-3</button>
+
+                                <button onclick="updateScore('aka', -2, 'Trừ 2 điểm (-2)', 2)" class="bg-red-200 text-red-800 px-2.5 py-2 rounded text-xs font-bold shadow cursor-pointer">-2</button>
+
+                                <button onclick="updateScore('aka', -1, 'Trừ 1 điểm (-1)', 1)" class="bg-red-200 text-red-800 px-2.5 py-2 rounded text-xs font-bold shadow cursor-pointer">-1</button>
+
+                            </div>
+
+                            <div class="flex flex-wrap gap-1.5 items-center pt-2 border-t border-red-200">
+
+                                <span class="text-[11px] font-bold text-red-700 mr-1">Lỗi WKF:</span>
+
+                                <button onclick="addPenalty('aka', 'C1')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 px-2.5 py-1 rounded text-xs font-bold shadow cursor-pointer">C1</button>
+
+                                <button onclick="addPenalty('aka', 'C2')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 px-2.5 py-1 rounded text-xs font-bold shadow cursor-pointer">C2</button>
+
+                                <button onclick="addPenalty('aka', 'C3')" class="bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-300 px-2.5 py-1 rounded text-xs font-bold shadow cursor-pointer">C3</button>
+
+                                <button onclick="addPenalty('aka', 'HC')" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded text-xs font-black shadow cursor-pointer">Hansoku-chui</button>
+
+                                <button onclick="addPenalty('aka', 'HS')" class="bg-red-900 hover:bg-red-950 text-white px-2.5 py-1 rounded text-xs font-black shadow cursor-pointer">Hansoku</button>
+
+                                <button onclick="resetPenalties('aka')" class="text-[10px] text-slate-500 hover:text-red-600 underline ml-auto cursor-pointer">Xóa hết lỗi</button>
+
+                            </div>
+
+                            <!-- HÀNG NÚT XÓA TỪNG LỖI RIÊNG BIỆT CHO ĐỎ -->
+
+                            <div class="flex flex-wrap gap-1.5 items-center pt-1.5 border-t border-dashed border-red-200">
+
+                                <span class="text-[10px] font-bold text-red-600 mr-1">Xóa lỗi:</span>
+
+                                <button onclick="removeSpecificPenalty('aka', 'C1')" class="bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 px-2 py-0.5 rounded text-[10px] font-bold shadow cursor-pointer">-C1</button>
+
+                                <button onclick="removeSpecificPenalty('aka', 'C2')" class="bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 px-2 py-0.5 rounded text-[10px] font-bold shadow cursor-pointer">-C2</button>
+
+                                <button onclick="removeSpecificPenalty('aka', 'C3')" class="bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 px-2 py-0.5 rounded text-[10px] font-bold shadow cursor-pointer">-C3</button>
+
+                                <button onclick="removeSpecificPenalty('aka', 'HC')" class="bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 px-2 py-0.5 rounded text-[10px] font-bold shadow cursor-pointer">-HC</button>
+
+                                <button onclick="removeSpecificPenalty('aka', 'HS')" class="bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 px-2 py-0.5 rounded text-[10px] font-bold shadow cursor-pointer">-HS</button>
+
+                            </div>
+
+                        </div>
+
+
+
+                        <!-- AO CONTROLS -->
+
+                        <div class="space-y-2 bg-blue-50 p-3 rounded-xl border border-blue-200">
+
+                            <div class="flex justify-between items-center">
+
+                                <div class="text-xs font-bold text-blue-600 uppercase">Thao tác Xanh (AO)</div>
+
+                                <button onclick="declareWinner('ao')" class="bg-blue-700 hover:bg-blue-800 text-white px-3 py-1 rounded text-xs font-black shadow animate-pulse cursor-pointer">👑 XANH THẮNG TRẬN NÀY</button>
+
+                            </div>
+
+                            <div class="flex flex-wrap gap-2 items-center">
+
+                                <button onclick="toggleSenshu('ao')" id="btn-ctrl-senshu-ao" class="bg-blue-600 text-white px-3 py-2 rounded text-xs font-bold shadow cursor-pointer">Senshu</button>
+
+                                <span class="text-slate-300 font-bold">|</span>
+
+                                <button onclick="updateScore('ao', 3, 'Cộng Ippon (+3)', 3)" class="bg-blue-600 text-white px-3 py-2 rounded text-xs font-bold shadow cursor-pointer">+3 Ippon</button>
+
+                                <button onclick="updateScore('ao', 2, 'Cộng Waza-ari (+2)', 2)" class="bg-blue-600 text-white px-3 py-2 rounded text-xs font-bold shadow cursor-pointer">+2 Waza-ari</button>
+
+                                <button onclick="updateScore('ao', 1, 'Cộng Yuko (+1)', 1)" class="bg-blue-600 text-white px-3 py-2 rounded text-xs font-bold shadow cursor-pointer">+1 Yuko</button>
+
+                                <span class="text-slate-300 font-bold">|</span>
+
+                                <button onclick="updateScore('ao', -3, 'Trừ 3 điểm (-3)', 3)" class="bg-blue-200 text-blue-800 px-2.5 py-2 rounded text-xs font-bold shadow cursor-pointer">-3</button>
+
+                                <button onclick="updateScore('ao', -2, 'Trừ 2 điểm (-2)', 2)" class="bg-blue-200 text-blue-800 px-2.5 py-2 rounded text-xs font-bold shadow cursor-pointer">-2</button>
+
+                                <button onclick="updateScore('ao', -1, 'Trừ 1 điểm (-1)', 1)" class="bg-blue-200 text-blue-800 px-2.5 py-2 rounded text-xs font-bold shadow cursor-pointer">-1</button>
+
+                            </div>
+
+                            <div class="flex flex-wrap gap-1.5 items-center pt-2 border-t border-blue-200">
+
+                                <span class="text-[11px] font-bold text-blue-700 mr-1">Lỗi WKF:</span>
+
+                                <button onclick="addPenalty('ao', 'C1')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 px-2.5 py-1 rounded text-xs font-bold shadow cursor-pointer">C1</button>
+
+                                <button onclick="addPenalty('ao', 'C2')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 px-2.5 py-1 rounded text-xs font-bold shadow cursor-pointer">C2</button>
+
+                                <button onclick="addPenalty('ao', 'C3')" class="bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-300 px-2.5 py-1 rounded text-xs font-bold shadow cursor-pointer">C3</button>
+
+                                <button onclick="addPenalty('ao', 'HC')" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-xs font-black shadow cursor-pointer">Hansoku-chui</button>
+
+                                <button onclick="addPenalty('ao', 'HS')" class="bg-blue-900 hover:bg-blue-950 text-white px-2.5 py-1 rounded text-xs font-black shadow cursor-pointer">Hansoku</button>
+
+                                <button onclick="resetPenalties('ao')" class="text-[10px] text-slate-500 hover:text-red-600 underline ml-auto cursor-pointer">Xóa hết lỗi</button>
+
+                            </div>
+
+                            <!-- HÀNG NÚT XÓA TỪNG LỖI RIÊNG BIỆT CHO XANH -->
+
+                            <div class="flex flex-wrap gap-1.5 items-center pt-1.5 border-t border-dashed border-blue-200">
+
+                                <span class="text-[10px] font-bold text-blue-600 mr-1">Xóa lỗi:</span>
+
+                                <button onclick="removeSpecificPenalty('ao', 'C1')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-300 px-2 py-0.5 rounded text-[10px] font-bold shadow cursor-pointer">-C1</button>
+
+                                <button onclick="removeSpecificPenalty('ao', 'C2')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-300 px-2 py-0.5 rounded text-[10px] font-bold shadow cursor-pointer">-C2</button>
+
+                                <button onclick="removeSpecificPenalty('ao', 'C3')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-300 px-2 py-0.5 rounded text-[10px] font-bold shadow cursor-pointer">-C3</button>
+
+                                <button onclick="removeSpecificPenalty('ao', 'HC')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-300 px-2 py-0.5 rounded text-[10px] font-bold shadow cursor-pointer">-HC</button>
+
+                                <button onclick="removeSpecificPenalty('ao', 'HS')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-300 px-2 py-0.5 rounded text-[10px] font-bold shadow cursor-pointer">-HS</button>
+
+                            </div>
+
+                        </div>
+
+
+
+                        <!-- KHU VỰC NÚT KẾT THÚC / LƯU TRẬN ĐẤU -->
+
+                        <div class="space-y-2 pt-1">
+
+                            <button onclick="finishIndividualMatch()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow text-sm cursor-pointer flex items-center justify-center space-x-2">
+
+                                <i class="fa-solid fa-floppy-disk"></i>
+
+                                <span>Lưu Kết Quả Trận Đơn Này & Chuyển Lên Sơ Đồ</span>
+
+                            </button>
+
+                            
+
+                            <!-- NÚT KẾT THÚC TOÀN BỘ TRẬN ĐẤU -->
+
+                            <button onclick="finishEntireTeamOrBracketMatch()" class="w-full bg-red-700 hover:bg-red-800 text-white font-black py-3 rounded-xl shadow-lg text-sm uppercase tracking-wider cursor-pointer flex items-center justify-center space-x-2 border-2 border-yellow-400">
+
+                                <i class="fa-solid fa-flag-checkered text-yellow-300"></i>
+
+                                <span>Kết Thúc Toàn Bộ Trận Đấu (Xác Định Đội Thắng Chung Cuộc)</span>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="space-y-4 flex flex-col justify-between">
+
+                        <div class="bg-slate-900 rounded-xl p-4 text-white border border-slate-800 shadow-md space-y-3">
+
+                            <div class="text-center pb-2 border-b border-slate-800 flex justify-between items-center">
+
+                                <div id="admin-preview-content-title" class="text-xs font-black text-yellow-400 uppercase">NỘI DUNG</div>
+
+                                <div id="admin-team-score-wrapper" class="bg-red-600/30 border border-red-500 px-3 py-1 rounded-lg text-xs font-bold text-yellow-300 hidden">
+
+                                    Tỷ số đội: <span id="admin-team-score-aka" class="text-red-400 text-sm font-black">0</span> - <span id="admin-team-score-ao" class="text-blue-400 text-sm font-black">0</span>
+
+                                </div>
+
+                            </div>
+
+                            
+
+                            <!-- AKA PREVIEW BOX WITH 5 FIXED PENALTY SQUARES -->
+
+                            <div id="admin-box-aka" class="bg-red-950/60 p-3 rounded-lg border border-red-900 flex flex-col gap-2 transition-all">
+
+                                <div class="flex justify-between items-center">
+
+                                    <div>
+
+                                        <div class="text-sm font-black text-red-400 uppercase flex items-center">
+
+                                            <span id="admin-preview-aka-name">VĐV ĐỎ</span>
+
+                                            <span id="admin-preview-senshu-aka-badge" class="senshu-badge hidden">SENSHU</span>
+
+                                        </div>
+
+                                        <div id="admin-preview-aka-club" class="text-xs text-red-300 uppercase font-bold mt-0.5"></div>
+
+                                    </div>
+
+                                    <span id="admin-preview-aka-score" class="text-4xl font-black text-red-500">0</span>
+
+                                </div>
+
+                                <!-- 5 Ô CỐ ĐỊNH: C1, C2, C3, HC, HS -->
+
+                                <div class="flex items-center space-x-1.5 pt-1 border-t border-red-900/60" id="penalty-boxes-aka"></div>
+
+                            </div>
+
+
+
+                            <!-- AO PREVIEW BOX WITH 5 FIXED PENALTY SQUARES -->
+
+                            <div id="admin-box-ao" class="bg-blue-950/60 p-3 rounded-lg border border-blue-900 flex flex-col gap-2 transition-all">
+
+                                <div class="flex justify-between items-center">
+
+                                    <div>
+
+                                        <div class="text-sm font-black text-blue-400 uppercase flex items-center">
+
+                                            <span id="admin-preview-ao-name">VĐV XANH</span>
+
+                                            <span id="admin-preview-senshu-ao-badge" class="senshu-badge hidden">SENSHU</span>
+
+                                        </div>
+
+                                        <div id="admin-preview-ao-club" class="text-xs text-blue-300 uppercase font-bold mt-0.5"></div>
+
+                                    </div>
+
+                                    <span id="admin-preview-ao-score" class="text-4xl font-black text-blue-400">0</span>
+
+                                </div>
+
+                                <!-- 5 Ô CỐ ĐỊNH: C1, C2, C3, HC, HS -->
+
+                                <div class="flex items-center space-x-1.5 pt-1 border-t border-blue-900/60" id="penalty-boxes-ao"></div>
+
+                            </div>
+
+
+
+                            <div class="flex justify-between items-center bg-slate-800 p-2.5 rounded-lg">
+
+                                <span class="bg-yellow-500 text-black px-3 py-1 rounded font-black text-xs uppercase" id="admin-preview-mat">THẢM 1</span>
+
+                                <span id="admin-preview-timer" class="text-2xl font-mono font-black text-yellow-400">01:30.0</span>
+
+                            </div>
+
+                        </div>
+
+
+
+                        <!-- LỊCH SỬ THAO TÁC ĐIỂM -->
+
+                        <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col h-48">
+
+                            <div class="flex justify-between items-center border-b pb-2 mb-2">
+
+                                <span class="text-xs font-black text-slate-700 uppercase"><i class="fa-solid fa-clock-rotate-left mr-1 text-red-600"></i> Lịch Sử Thao Tác Điểm & Lỗi</span>
+
+                                <div class="flex space-x-2">
+
+                                    <button onclick="exportActionSummaryPDF()" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded text-[10px] font-bold shadow flex items-center space-x-1 cursor-pointer">
+
+                                        <i class="fa-solid fa-file-pdf"></i> <span>Xuất PDF Thống Kê</span>
+
+                                    </button>
+
+                                    <button onclick="clearActionHistory()" class="text-[10px] text-slate-400 hover:text-red-600 font-bold underline cursor-pointer">Xóa lịch sử</button>
+
+                                </div>
+
+                            </div>
+
+                            <div id="action-history-list" class="overflow-y-auto flex-1 space-y-1.5 text-xs pr-1">
+
+                                <div class="text-slate-400 italic text-center py-6">Chưa có thao tác điểm nào...</div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- TAB 5: HUY CHƯƠNG -->
+
+        <div id="tab-5" class="tab-content hidden space-y-10">
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 no-print">
+
+                <h2 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-trophy text-yellow-500 mr-2"></i> Tổng Sắp Huy Chương & Kết Quả Giải Đấu</h2>
+
+                <div class="flex flex-wrap gap-2">
+
+                    <button onclick="openExportResultModal()" class="bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-bold shadow hover:bg-red-700 cursor-pointer">Tải PDF Các Nội Dung Đã Chọn</button>
+
+                    <button onclick="downloadContentResultsPDF()" class="bg-slate-800 text-white px-3 py-2 rounded-lg text-xs font-bold shadow hover:bg-slate-900 cursor-pointer">Tải PDF Toàn Giải</button>
+
+                    <button onclick="downloadMedalPDF()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold shadow hover:bg-blue-700 cursor-pointer">Tải PDF Bảng Tổng Sắp</button>
+
+                </div>
+
+            </div>
+
+            
+
+            <div id="medal-print-container" class="space-y-12">
+
+                <div id="section-content-results" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+
+                    <div class="flex justify-between items-center mb-6 no-print flex-wrap gap-3">
+
+                        <div class="flex items-center space-x-3">
+
+                            <h3 class="text-md font-bold text-slate-800 uppercase">KẾT QUẢ THI ĐẤU THEO NỘI DUNG</h3>
+
+                            <button onclick="toggleSelectAllContents(true)" class="text-xs text-blue-600 font-semibold hover:underline cursor-pointer">Chọn tất cả</button>
+
+                            <span class="text-slate-300">|</span>
+
+                            <button onclick="toggleSelectAllContents(false)" class="text-xs text-slate-500 font-semibold hover:underline cursor-pointer">Bỏ chọn tất cả</button>
+
+                        </div>
+
+                        <button onclick="exportSelectedContentResultsToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow flex items-center space-x-1 cursor-pointer">
+
+                            <i class="fa-solid fa-file-excel"></i> <span>Xuất Excel Các Nội Dung Đã Chọn</span>
+
+                        </button>
+
+                    </div>
+
+                    <table class="w-full text-left border-collapse text-xs border border-slate-200">
+
+                        <thead>
+
+                            <tr class="border-b text-slate-700 text-center bg-slate-50">
+
+                                <th class="p-2 border-r w-12 no-print">Chọn</th>
+
+                                <th class="p-2 border-r w-10">#</th>
+
+                                <th class="p-2 border-r w-52">Nội Dung</th>
+
+                                <th class="p-2 border-r">🥇 HCV</th>
+
+                                <th class="p-2 border-r">🥈 HCB</th>
+
+                                <th class="p-2 border-r">🥉 HCĐ</th>
+
+                                <th class="p-2">🥉 HCĐ</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="medal-form-table-body" class="divide-y text-slate-700"></tbody>
+
+                    </table>
+
+                </div>
+
+
+
+                <div id="section-total-medals" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+
+                    <div class="text-center mb-6"><h3 class="text-lg font-black text-slate-800 uppercase">BẢNG TỔNG SẮP HUY CHƯƠNG</h3></div>
+
+                    <table class="w-full text-left border-collapse text-sm border border-slate-200">
+
+                        <thead>
+
+                            <tr class="border-b text-slate-700 bg-slate-50">
+
+                                <th class="p-3 border-r w-16">Hạng</th>
+
+                                <th class="p-3 border-r">Đơn Vị</th>
+
+                                <th class="p-3 border-r text-center text-yellow-600">Vàng</th>
+
+                                <th class="p-3 border-r text-center text-slate-500">Bạc</th>
+
+                                <th class="p-3 border-r text-center text-amber-700">Đồng</th>
+
+                                <th class="p-3 text-center font-bold">Tổng</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="medal-table-body" class="divide-y text-slate-700"></tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- TAB 6: THỐNG KÊ -->
+
+        <div id="tab-6" class="tab-content hidden space-y-6">
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+
+                <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+
+                    <h3 class="text-md font-bold text-slate-800">Thống Kê VĐV Nam/Nữ Theo Đoàn</h3>
+
+                    <button onclick="exportGenderStatsToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow flex items-center space-x-1 cursor-pointer">
+
+                        <i class="fa-solid fa-file-excel"></i> <span>Xuất Excel Thống Kê</span>
+
+                    </button>
+
+                </div>
+
+                <table class="w-full text-left border-collapse text-sm">
+
+                    <thead>
+
+                        <tr class="border-b text-slate-500 bg-slate-50">
+
+                            <th class="p-3 w-16">STT</th>
+
+                            <th class="p-3">Đơn Vị</th>
+
+                            <th class="p-3 text-center text-blue-600">Nam</th>
+
+                            <th class="p-3 text-center text-pink-600">Nữ</th>
+
+                            <th class="p-3 text-center font-bold">Tổng</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="club-gender-stat-tbody" class="divide-y text-slate-700"></tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </main>
+
+
+
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500 mt-8 no-print">
+
+        DNT KARATE DATASPORT - HỆ THỐNG QUẢN LÝ GIẢI ĐẤU WKF CHUYÊN NGHIỆP - Bản quyền thuộc về Đoàn Vũ Đức Dũng
+
+    </footer>
+
+
+
+    <!-- MAIN SCRIPT CONTROLLER -->
+
+    <script>
+
+        let socket = null;
+
+        let isConnected = false;
+
+
+
+        let appData = JSON.parse(localStorage.getItem('dnt_karate_datasport_pro')) || {
+
+            tournamentTitle: 'GIẢI KARATE MỞ RỘNG', 
+
+            logoUrl: '', contents: [], athletes: [], teams: [], matches: [], results: []
+
+        };
+
+        if(!appData.teams) appData.teams = [];
+
+
+
+        function initAutoSocketConnection() {
+
+            try {
+
+                let serverUrl = window.location.origin;
+
+                if (window.location.protocol === 'file:') { serverUrl = 'http://localhost:3000'; }
+
+                socket = io(serverUrl);
+
+                socket.on('connect', () => { isConnected = true; updateConnectionBadge(true); socket.emit('request_sync'); });
+
+                socket.on('disconnect', () => { isConnected = false; updateConnectionBadge(false); });
+
+                socket.on('sync_data', (newData) => {
+
+                    if(newData) {
+
+                        appData = newData;
+
+                        localStorage.setItem('dnt_karate_datasport_pro', JSON.stringify(appData));
+
+                        if(typeof renderAll === 'function') renderAll();
+
+                    }
+
+                });
+
+            } catch(e) {}
+
+        }
+
+
+
+        function updateConnectionBadge(status) {
+
+            let badge = document.getElementById('connection-status-text');
+
+            if(badge) {
+
+                badge.innerText = status ? "Đã kết nối Wi-Fi" : "Mất kết nối";
+
+                badge.parentElement.className = status 
+
+                    ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-xs px-3 py-1.5 rounded-lg border border-emerald-300 font-semibold transition shadow-sm cursor-pointer"
+
+                    : "bg-red-100 hover:bg-red-200 text-red-700 text-xs px-3 py-1.5 rounded-lg border border-red-300 font-semibold transition shadow-sm cursor-pointer";
+
+            }
+
+        }
+
+
+
+        function connectAsSecretary() {
+
+            let ipVal = document.getElementById('input-server-ip').value.trim();
+
+            if(!ipVal) return alert("Vui lòng nhập địa chỉ IP của máy Ban Tổ Chức!");
+
+            connectToServerIP(ipVal);
+
+        }
+
+
+
+        function connectAsSecretaryFromPopup() {
+
+            let ipVal = document.getElementById('popup-input-server-ip').value.trim();
+
+            if(!ipVal) return alert("Vui lòng nhập địa chỉ IP của máy Ban Tổ Chức!");
+
+            connectToServerIP(ipVal);
+
+            closeLanModal();
+
+        }
+
+
+
+        function connectToServerIP(ipAddress) {
+
+            const serverUrl = `http://${ipAddress}:3000`;
+
+            if(socket) socket.disconnect();
+
+            try { 
+
+                socket = io(serverUrl); 
+
+                socket.on('connect', () => {
+
+                    isConnected = true; updateConnectionBadge(true);
+
+                    alert("✅ Kết nối thành công tới " + ipAddress + "!");
+
+                    socket.emit('request_sync');
+
+                });
+
+                socket.on('disconnect', () => { isConnected = false; updateConnectionBadge(false); });
+
+                socket.on('sync_data', (newData) => {
+
+                    if(newData) {
+
+                        appData = newData;
+
+                        localStorage.setItem('dnt_karate_datasport_pro', JSON.stringify(appData));
+
+                        if(typeof renderAll === 'function') renderAll();
+
+                    }
+
+                });
+
+            } catch (e) { alert("Không thể kết nối đến IP: " + ipAddress); }
+
+        }
+
+
+
+        function saveData() {  
+
+            localStorage.setItem('dnt_karate_datasport_pro', JSON.stringify(appData));  
+
+            if(socket && isConnected) { socket.emit('update_data', appData); }
+
+            if(typeof renderAll === 'function') renderAll();  
+
+        }
+
+
+
+        function saveDataWithoutRerenderingScores() {  
+
+            localStorage.setItem('dnt_karate_datasport_pro', JSON.stringify(appData));  
+
+            if(socket && isConnected) { socket.emit('update_data', appData); }
+
+        }
+
+
+
+        async function loadServerIP() {
+
+            let ipStr = "127.0.0.1";
+
+            try {
+
+                let response = await fetch('/api/get-ip');
+
+                let data = await response.json();
+
+                if (data && data.ip) { ipStr = data.ip; }
+
+            } catch(e) {
+
+                try {
+
+                    if (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+
+                        ipStr = window.location.hostname;
+
+                    }
+
+                } catch(err) {}
+
+            }
+
+            let ip1 = document.getElementById('server-ip-display');
+
+            let ip2 = document.getElementById('popup-server-ip');
+
+            if (ip1) ip1.innerText = ipStr;
+
+            if (ip2) ip2.innerText = ipStr;
+
+        }
+
+
+
+        function openLanModal() { loadServerIP(); document.getElementById('lan-modal').classList.remove('hidden'); }
+
+        function closeLanModal() { document.getElementById('lan-modal').classList.add('hidden'); }
+
+
+
+        function copyServerIP() {
+
+            let ipText = document.getElementById('server-ip-display').innerText;
+
+            navigator.clipboard.writeText(ipText);
+
+            alert("Đã sao chép IP: " + ipText);
+
+        }
+
+
+
+        const KATA_LIST = [
+
+            { id: 1, name: "Anan" }, { id: 2, name: "Anan Dai" }, { id: 3, name: "Ananko" }, { id: 5, name: "Bassai Dai" },
+
+            { id: 12, name: "Enpi" }, { id: 25, name: "Heian Shodan" }, { id: 26, name: "Heian Nidan" }, { id: 36, name: "Jion" },
+
+            { id: 40, name: "Kanku Dai" }, { id: 76, name: "Saifa" }, { id: 82, name: "Seienchin" }, { id: 92, name: "Suparinpei" }
+
+        ];
+
+
+
+        document.getElementById('current-date').innerText = new Date().toLocaleDateString('vi-VN');
+
+        
+
+        let currentRole = localStorage.getItem('dnt_karate_role') || null;
+
+        let audienceWindow = null, activeContentNameForAudience = '', currentMatch = null, defaultLogoBase64 = ''; 
+
+
+
+        function preloadDefaultLogo() {
+
+            let img = new Image();
+
+            img.crossOrigin = "Anonymous";
+
+            img.onload = function() {
+
+                try {
+
+                    let canvas = document.createElement('canvas');
+
+                    canvas.width = img.width; canvas.height = img.height;
+
+                    let ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
+
+                    defaultLogoBase64 = canvas.toDataURL('image/png');
+
+                } catch(e) {}
+
+            };
+
+            img.src = 'logo.png';
+
+        }
+
+        preloadDefaultLogo();
+
+
+
+        function uploadCustomLogo(event) {
+
+            let file = event.target.files[0];
+
+            if (!file) return;
+
+            let reader = new FileReader();
+
+            reader.onload = function(e) {
+
+                appData.logoUrl = e.target.result;
+
+                saveData();
+
+                alert("Đã cập nhật Logo thành công!");
+
+            };
+
+            reader.readAsDataURL(file);
+
+        }
+
+
+
+        function getAppLogoSrc() { return appData.logoUrl || defaultLogoBase64 || 'logo.png'; }
+
+
+
+        function selectRole(role) {
+
+            currentRole = role;
+
+            localStorage.setItem('dnt_karate_role', role);
+
+            if (role === 'secretary' && (!appData.contents || appData.contents.length === 0)) {
+
+                appData = { tournamentTitle: 'GIẢI KARATE', logoUrl: '', contents: [], athletes: [], teams: [], matches: [], results: [] };
+
+            }
+
+            document.getElementById('role-selection-modal').classList.add('hidden');
+
+            setupRoleNavigation();
+
+        }
+
+
+
+        function changeRole() {
+
+            localStorage.removeItem('dnt_karate_role');
+
+            document.getElementById('role-selection-modal').classList.remove('hidden');
+
+            document.getElementById('secretary-empty-screen').classList.add('hidden');
+
+        }
+
+
+
+        function setupRoleNavigation() {
+
+            const nav = document.getElementById('main-nav');
+
+            nav.innerHTML = `
+
+                <button onclick="switchTab(1)" class="tab-btn px-4 py-2 rounded-lg font-medium text-sm transition text-white bg-red-600 shadow-sm cursor-pointer" id="btn-tab-1"><i class="fa-solid fa-gear"></i> <span>1. Cài đặt</span></button>
+
+                <button onclick="switchTab('mat')" class="tab-btn px-4 py-2 rounded-lg font-medium text-sm transition text-slate-600 hover:bg-slate-100 cursor-pointer" id="btn-tab-mat"><i class="fa-solid fa-map-location-dot"></i> <span>2. Quản Lý Thảm</span></button>
+
+                <button onclick="switchTab(2)" class="tab-btn px-4 py-2 rounded-lg font-medium text-sm transition text-slate-600 hover:bg-slate-100 cursor-pointer" id="btn-tab-2"><i class="fa-solid fa-users"></i> <span>3. VĐV & Đội</span></button>
+
+                <button onclick="switchTab(3)" class="tab-btn px-4 py-2 rounded-lg font-medium text-sm transition text-slate-600 hover:bg-slate-100 cursor-pointer" id="btn-tab-3"><i class="fa-solid fa-sitemap"></i> <span>4. Sơ Đồ Nhánh</span></button>
+
+                <button onclick="switchTab('scoreboard')" class="tab-btn px-4 py-2 rounded-lg font-medium text-sm transition text-slate-600 hover:bg-slate-100 cursor-pointer" id="btn-tab-scoreboard"><i class="fa-solid fa-stopwatch"></i> <span>5. Bảng Điểm</span></button>
+
+                <button onclick="switchTab(5)" class="tab-btn px-4 py-2 rounded-lg font-medium text-sm transition text-slate-600 hover:bg-slate-100 cursor-pointer" id="btn-tab-5"><i class="fa-solid fa-trophy"></i> <span>6. Huy Chương</span></button>
+
+                <button onclick="switchTab(6)" class="tab-btn px-4 py-2 rounded-lg font-medium text-sm transition text-slate-600 hover:bg-slate-100 cursor-pointer" id="btn-tab-6"><i class="fa-solid fa-chart-pie"></i> <span>7. Thống Kê</span></button>
+
+            `;
+
+            
+
+            if(currentRole === 'secretary') {
+
+                document.getElementById('header-role-title').innerText = 'Hệ thống Thư Ký Thảm Đấu';
+
+                if(!appData.contents || appData.contents.length === 0) {
+
+                    document.getElementById('secretary-empty-screen').classList.remove('hidden');
+
+                } else {
+
+                    document.getElementById('secretary-empty-screen').classList.add('hidden');
+
+                }
+
+            } else {
+
+                document.getElementById('header-role-title').innerText = 'Hệ thống Ban Tổ Chức';
+
+                document.getElementById('secretary-empty-screen').classList.add('hidden');
+
+            }
+
+            switchTab(3);
+
+        }
+
+
+
+        function switchTab(tabNumber) {
+
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+
+            document.querySelectorAll('.tab-btn').forEach(el => { 
+
+                el.classList.remove('bg-red-600', 'text-white', 'shadow-sm'); 
+
+                el.classList.add('text-slate-600', 'hover:bg-slate-100'); 
+
+            });
+
+            
+
+            let targetId = 'tab-' + tabNumber;
+
+            if (tabNumber === 'bracket-detail') targetId = 'tab-bracket-detail';
+
+            if (tabNumber === 'scoreboard') targetId = 'tab-scoreboard';
+
+            if (tabNumber === 'mat') targetId = 'tab-mat';
+
+
+
+            document.getElementById(targetId).classList.remove('hidden');
+
+            let btn = document.getElementById('btn-tab-' + tabNumber); 
+
+            if(btn) { 
+
+                btn.classList.remove('text-slate-600', 'hover:bg-slate-100'); 
+
+                btn.classList.add('bg-red-600', 'text-white', 'shadow-sm'); 
+
+            }
+
+            
+
+            if(tabNumber === 1) { loadServerIP(); }
+
+            if(tabNumber === 'scoreboard') { populateScoreboardContentDropdown(); initKataDropdowns(); }
+
+            renderAll();
+
+        }
+
+
+
+        function updateTournamentTitle() { 
+
+            let titleInput = document.getElementById('tournament-title-input'); 
+
+            if (titleInput.value.trim()) { 
+
+                appData.tournamentTitle = titleInput.value.trim(); 
+
+                saveData(); 
+
+                alert("Đã cập nhật tên giải!"); 
+
+            } 
+
+        }
+
+
+
+        function createNewTournament() { 
+
+            let newName = prompt("Nhập tên giải:", "GIẢI KARATE MỞ RỘNG"); 
+
+            if(newName) { 
+
+                appData = { tournamentTitle: newName.trim(), logoUrl: appData.logoUrl || '', contents: [], athletes: [], teams: [], matches: [], results: [] }; 
+
+                saveData(); 
+
+            } 
+
+        }
+
+
+
+        function exportFullBackupJSON() { 
+
+            const stringData = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData)); 
+
+            const downloadLink = document.createElement('a'); 
+
+            downloadLink.setAttribute("href", stringData); 
+
+            downloadLink.setAttribute("download", `BACKUP_${appData.tournamentTitle.replace(/[^a-zA-Z0-9]/g, "_")}.json`); 
+
+            document.body.appendChild(downloadLink); 
+
+            downloadLink.click(); 
+
+            downloadLink.remove(); 
+
+        }
+
+
+
+        function restoreFullBackupJSON(event) { 
+
+            let file = event.target.files[0]; 
+
+            if(!file) return; 
+
+            let reader = new FileReader(); 
+
+            reader.onload = (evt) => { 
+
+                try { 
+
+                    let parsedData = JSON.parse(evt.target.result); 
+
+                    if(parsedData && parsedData.contents) { 
+
+                        appData = parsedData; 
+
+                        saveData(); 
+
+                        alert("Đã khôi phục dữ liệu thành công!"); 
+
+                    } 
+
+                } catch(e) { alert("Lỗi đọc file JSON."); } 
+
+            }; 
+
+            reader.readAsText(file); 
+
+        }
+
+
+
+        function importDataBySecretary(event) {
+
+            let file = event.target.files[0]; 
+
+            if(!file) return; 
+
+            let reader = new FileReader();
+
+            reader.onload = function(e) { 
+
+                try { 
+
+                    let readData = JSON.parse(e.target.result); 
+
+                    if(readData && readData.contents) { 
+
+                        appData = readData; 
+
+                        saveData(); 
+
+                        document.getElementById('secretary-empty-screen').classList.add('hidden'); 
+
+                        alert("Đã nạp file dữ liệu thảm thành công!"); 
+
+                    } 
+
+                } catch(err) { alert("Lỗi đọc file JSON!"); } 
+
+            }; 
+
+            reader.readAsText(file);
+
+        }
+
+
+
+        function downloadContentTemplateExcel() {
+
+            let wsData = [["TenNoiDung", "HinhThuc"], ["Kumite cá nhân Nam dưới 60kg", "Kumite cá nhân"], ["Kumite đồng đội Nam", "Kumite đồng đội"]];
+
+            let ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            let wb = XLSX.utils.book_new();
+
+            XLSX.utils.book_append_sheet(wb, ws, "MauNoiDung");
+
+            XLSX.writeFile(wb, "Mau_Dang_Ky_Noi_Dung.xlsx");
+
+        }
+
+
+
+        function importContentsFromExcel(event) {
+
+            let file = event.target.files[0];
+
+            if(!file) return;
+
+            let reader = new FileReader();
+
+            reader.onload = function(e) {
+
+                try {
+
+                    let data = new Uint8Array(e.target.result);
+
+                    let workbook = XLSX.read(data, {type: 'array'});
+
+                    let firstSheet = workbook.SheetNames[0];
+
+                    let rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet]);
+
+                    rows.forEach(r => {
+
+                        let name = r["TenNoiDung"] || r["Tên Nội Dung"];
+
+                        let cat = r["HinhThuc"] || r["Hình Thức"] || "Kumite cá nhân";
+
+                        if(name && !appData.contents.some(c => c.name === name)) {
+
+                            appData.contents.push({ id: Date.now() + Math.random(), name, category: cat, mat: "Thảm 1" });
+
+                        }
+
+                    });
+
+                    saveData();
+
+                    alert("Import nội dung từ Excel thành công!");
+
+                } catch(err) { alert("Lỗi định dạng file Excel!"); }
+
+            };
+
+            reader.readAsArrayBuffer(file);
+
+        }
+
+
+
+        function addNewContentSafe() {
+
+            let nameInput = document.getElementById('content-name');
+
+            let name = nameInput.value.trim();
+
+            let cat = document.getElementById('content-category').value;
+
+            
+
+            if(!name) {
+
+                alert("Vui lòng nhập tên nội dung trước khi bấm thêm!");
+
+                nameInput.focus();
+
+                return;
+
+            }
+
+            
+
+            appData.contents.push({ id: Date.now(), name, category: cat, mat: 'Thảm 1' });
+
+            nameInput.value = ''; 
+
+            saveData();
+
+            nameInput.focus();
+
+        }
+
+
+
+        function downloadAthleteTemplateExcel() {
+
+            let wsData = [["HoVaTen", "NamSinh", "GioiTinh", "CanNang", "NoiDung", "DonVi", "HatGiong"], ["Nguyễn Văn A", "2005", "Nam", "60", "Kumite cá nhân Nam dưới 60kg", "ĐOÀN LÂM ĐỒNG", "0"]];
+
+            let ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            let wb = XLSX.utils.book_new();
+
+            XLSX.utils.book_append_sheet(wb, ws, "MauVDV");
+
+            XLSX.writeFile(wb, "Mau_Dang_Ky_VDV.xlsx");
+
+        }
+
+
+
+        function importAthletesFromExcel(event) {
+
+            let file = event.target.files[0];
+
+            if(!file) return;
+
+            let reader = new FileReader();
+
+            reader.onload = function(e) {
+
+                try {
+
+                    let data = new Uint8Array(e.target.result);
+
+                    let workbook = XLSX.read(data, {type: 'array'});
+
+                    let firstSheet = workbook.SheetNames[0];
+
+                    let rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet]);
+
+                    rows.forEach(r => {
+
+                        let name = r["HoVaTen"] || r["Họ và Tên"];
+
+                        let dob = r["NamSinh"] || r["Năm Sinh"] || "";
+
+                        let gender = r["GioiTinh"] || r["Giới tính"] || "Nam";
+
+                        let weight = r["CanNang"] || r["Cân nặng"] || "0";
+
+                        let content = r["NoiDung"] || r["Nội Dung"] || "";
+
+                        let club = r["DonVi"] || r["Đơn vị"] || "";
+
+                        let isSeed = parseInt(r["HatGiong"] || r["Hạt giống"] || 0) === 1;
+
+                        if(name && club) {
+
+                            appData.athletes.push({ id: Date.now() + Math.random(), name, dob, gender, weight, content, club, isSeed });
+
+                        }
+
+                    });
+
+                    saveData();
+
+                    alert("Import VĐV thành công!");
+
+                } catch(err) { alert("Lỗi file Excel VĐV!"); }
+
+            };
+
+            reader.readAsArrayBuffer(file);
+
+        }
+
+
+
+        function downloadTeamTemplateExcel() {
+
+            let wsData = [["TenDoi", "NoiDungDongDoi", "ThanhVienChinhThuc", "ThanhVienDuBi", "HatGiong"], ["ĐOÀN LÂM ĐỒNG 1", "Kumite đồng đội Nam", "Nguyễn Văn A, Trần Văn B, Lê Văn C", "Phạm Văn D", "0"]];
+
+            let ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            let wb = XLSX.utils.book_new();
+
+            XLSX.utils.book_append_sheet(wb, ws, "MauDoi");
+
+            XLSX.writeFile(wb, "Mau_Dang_Ky_Doi.xlsx");
+
+        }
+
+
+
+        function importTeamsFromExcel(event) {
+
+            let file = event.target.files[0];
+
+            if(!file) return;
+
+            let reader = new FileReader();
+
+            reader.onload = function(e) {
+
+                try {
+
+                    let data = new Uint8Array(e.target.result);
+
+                    let workbook = XLSX.read(data, {type: 'array'});
+
+                    let firstSheet = workbook.SheetNames[0];
+
+                    let rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet]);
+
+                    rows.forEach(r => {
+
+                        let unit = r["TenDoi"] || r["Tên Đội / Đoàn"] || "";
+
+                        let content = r["NoiDungDongDoi"] || r["Nội Dung Đồng Đội"] || "";
+
+                        let mainStr = r["ThanhVienChinhThuc"] || r["Thành Viên Chính Thức"] || "";
+
+                        let subStr = r["ThanhVienDuBi"] || r["Thành Viên Dự Bị"] || "";
+
+                        let isSeed = parseInt(r["HatGiong"] || r["Hạt giống"] || 0) === 1;
+
+                        let mainMembers = mainStr.split(/,|\n/).map(m => m.trim()).filter(Boolean);
+
+                        let subMembers = subStr.split(/,|\n/).map(m => m.trim()).filter(Boolean);
+
+                        if(unit && content) {
+
+                            appData.teams.push({ id: Date.now() + Math.random(), unit, content, mainMembers, subMembers, isSeed });
+
+                        }
+
+                    });
+
+                    saveData();
+
+                    alert("Import danh sách đội đồng đội thành công!");
+
+                } catch(err) { alert("Lỗi file Excel đội đồng đội!"); }
+
+            };
+
+            reader.readAsArrayBuffer(file);
+
+        }
+
+
+
+        function exportAthletesToExcel() {
+
+            if(!appData.athletes || appData.athletes.length === 0) return alert("Chưa có danh sách VĐV!");
+
+            let wsData = [["Họ và Tên", "Năm Sinh", "Giới Tính", "Cân Nặng", "Nội Dung", "Đơn Vị", "Hạt Giống"]];
+
+            appData.athletes.forEach(a => wsData.push([a.name || "", a.dob || "", a.gender || "", a.weight || "", a.content || "", a.club || "", a.isSeed ? 1 : 0]));
+
+            let ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            let wb = XLSX.utils.book_new();
+
+            XLSX.utils.book_append_sheet(wb, ws, "DanhSachVDV");
+
+            XLSX.writeFile(wb, "Danh_Sach_Van_Dong_Vien.xlsx");
+
+        }
+
+
+
+        function exportTeamsToExcel() {
+
+            if(!appData.teams || appData.teams.length === 0) return alert("Chưa có danh sách đội đồng đội!");
+
+            let wsData = [["Tên Đội / Đoàn", "Nội Dung Đồng Đội", "Thành Viên Chính Thức", "Thành Viên Dự Bị", "Hạt Giống"]];
+
+            appData.teams.forEach(t => wsData.push([t.unit || "", t.content || "", (t.mainMembers||[]).join(", "), (t.subMembers||[]).join(", "), t.isSeed ? 1 : 0]));
+
+            let ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            let wb = XLSX.utils.book_new();
+
+            XLSX.utils.book_append_sheet(wb, ws, "DanhSachDoi");
+
+            XLSX.writeFile(wb, "Danh_Sach_Doi_Dong_Doi.xlsx");
+
+        }
+
+
+
+        function exportGenderStatsToExcel() {
+
+            let genderStat = {};
+
+            appData.athletes.forEach(a => {
+
+                let cl = a.club || 'Tự do';
+
+                if(!genderStat[cl]) genderStat[cl] = {m:0, f:0};
+
+                if((a.gender||'').toLowerCase() === 'nam') genderStat[cl].m++; else genderStat[cl].f++;
+
+            });
+
+            if(Object.keys(genderStat).length === 0) return alert("Chưa có dữ liệu thống kê!");
+
+            let wsData = [["STT", "Đơn Vị", "Nam", "Nữ", "Tổng"]];
+
+            let idx = 1;
+
+            Object.keys(genderStat).sort().forEach(cl => {
+
+                let m = genderStat[cl].m, f = genderStat[cl].f;
+
+                wsData.push([idx++, cl, m, f, m + f]);
+
+            });
+
+            let ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            let wb = XLSX.utils.book_new();
+
+            XLSX.utils.book_append_sheet(wb, ws, "ThongKeVDV");
+
+            XLSX.writeFile(wb, "Thong_Ke_VDV_Theo_Doan.xlsx");
+
+        }
+
+
+
+        function exportSelectedContentResultsToExcel() {
+
+            let checkboxes = document.querySelectorAll('.content-select-cb:checked');
+
+            if(checkboxes.length === 0) return alert("Vui lòng chọn ít nhất một nội dung cần xuất Excel!");
+
+            let selectedNames = Array.from(checkboxes).map(cb => decodeURIComponent(cb.getAttribute('data-content')));
+
+            
+
+            let wsData = [["STT", "Tên VĐV/Đội", "CLB/Đơn Vị", "Thành Tích", "Nội Dung"]];
+
+            let stt = 1;
+
+            appData.contents.forEach(c => {
+
+                if(selectedNames.includes(c.name)) {
+
+                    let res = appData.results.find(r => r.contentName === c.name);
+
+                    let goldObj = res ? res.gold : null;
+
+                    let silverObj = res ? res.silver : null;
+
+                    wsData.push([stt++, goldObj ? (goldObj.name || goldObj.unit) : '---', goldObj ? (goldObj.club || goldObj.unit || '---') : '---', "Huy chương vàng", c.name]);
+
+                    wsData.push([stt++, silverObj ? (silverObj.name || silverObj.unit) : '---', silverObj ? (silverObj.club || silverObj.unit || '---') : '---', "Huy chương bạc", c.name]);
+
+                }
+
+            });
+
+            let ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            let wb = XLSX.utils.book_new();
+
+            XLSX.utils.book_append_sheet(wb, ws, "KetQuaCacNoiDung");
+
+            XLSX.writeFile(wb, "Ket_Qua_Thi_Dau_Chon_Loc.xlsx");
+
+        }
+
+
+
+        function generateDatasportDraws(participants) {
+
+            if (!participants || participants.length < 2) return { rounds: [] };
+
+            let numParticipants = participants.length;
+
+            
+
+            let targetDrawSize = 2;
+
+            if (numParticipants > 2 && numParticipants <= 4) targetDrawSize = 4;
+
+            else if (numParticipants > 4 && numParticipants <= 8) targetDrawSize = 8;
+
+            else if (numParticipants > 8 && numParticipants <= 16) targetDrawSize = 16;
+
+            else if (numParticipants > 16) targetDrawSize = 32;
+
+
+
+            let seeds = participants.filter(p => p.isSeed);
+
+            let nonSeeds = participants.filter(p => !p.isSeed);
+
+            
+
+            let seedPositions = [];
+
+            if (targetDrawSize === 4) seedPositions = [0, 3];
+
+            else if (targetDrawSize >= 8) seedPositions = [0, targetDrawSize - 1, targetDrawSize / 2 - 1, targetDrawSize / 2];
+
+
+
+            let slots = new Array(targetDrawSize).fill(null);
+
+
+
+            seeds.forEach((s, idx) => {
+
+                if (seedPositions[idx] !== undefined) {
+
+                    slots[seedPositions[idx]] = s;
+
+                }
+
+            });
+
+
+
+            let pool = [...nonSeeds, ...seeds.slice(seedPositions.length)];
+
+            pool.sort(() => Math.random() - 0.5);
+
+            
+
+            let poolIdx = 0;
+
+            for (let i = 0; i < targetDrawSize; i++) {
+
+                if (!slots[i]) {
+
+                    slots[i] = pool[poolIdx++] || { id: '', name: '', unit: '', club: '', isBye: true };
+
+                }
+
+            }
+
+
+
+            let bracketRounds = [];
+
+            let currentRoundMatchesList = [];
+
+            let matchCounter = 1;
+
+
+
+            let firstRoundName = targetDrawSize === 4 ? 'Bán Kết' : (targetDrawSize === 8 ? 'Tứ Kết' : 'Vòng 1/8');
+
+            if (targetDrawSize === 2) firstRoundName = 'Chung Kết';
+
+            
+
+            for (let i = 0; i < targetDrawSize; i += 2) {
+
+                let aka = slots[i];
+
+                let ao = slots[i + 1];
+
+                
+
+                let isAkaBye = !aka || (!aka.name && !aka.unit);
+
+                let isAoBye = !ao || (!ao.name && !ao.unit);
+
+                let winner = null;
+
+
+
+                if (isAkaBye && !isAoBye) winner = ao;
+
+                else if (!isAkaBye && isAoBye) winner = aka;
+
+
+
+                currentRoundMatchesList.push({
+
+                    id: 'match_' + Date.now() + '_' + i + '_' + Math.random().toString(36).substring(2, 7),
+
+                    roundName: firstRoundName,
+
+                    matchNum: matchCounter++,
+
+                    aka: isAkaBye ? { id: '', name: '', unit: '', club: '' } : aka,
+
+                    ao: isAoBye ? { id: '', name: '', unit: '', club: '' } : ao,
+
+                    scoreAka: 0, scoreAo: 0, 
+
+                    teamScoreAka: 0, teamScoreAo: 0,
+
+                    senshuAka: false, senshuAo: false,
+
+                    penaltiesAka: [], penaltiesAo: [],
+
+                    winner: winner, isBye: (isAkaBye || isAoBye)
+
+                });
+
+            }
+
+            bracketRounds.push(currentRoundMatchesList);
+
+
+
+            while (currentRoundMatchesList.length > 1) {
+
+                let nextRoundMatches = [];
+
+                let nextRoundLen = currentRoundMatchesList.length / 2;
+
+                
+
+                let roundTitle = 'Chung Kết';
+
+                if (nextRoundLen > 1) roundTitle = 'Bán Kết';
+
+
+
+                let nextMatchCounter = 1;
+
+                for (let i = 0; i < currentRoundMatchesList.length; i += 2) {
+
+                    let m1 = currentRoundMatchesList[i];
+
+                    let m2 = currentRoundMatchesList[i + 1];
+
+                    
+
+                    let autoAka = (m1.isBye && m1.winner) ? m1.winner : { id: '', name: '', unit: '', club: '' };
+
+                    let autoAo = (m2.isBye && m2.winner) ? m2.winner : { id: '', name: '', unit: '', club: '' };
+
+
+
+                    nextRoundMatches.push({
+
+                        id: 'match_' + Date.now() + '_r' + i + '_' + Math.random().toString(36).substring(2, 7),
+
+                        roundName: roundTitle,
+
+                        matchNum: nextMatchCounter++,
+
+                        aka: autoAka,
+
+                        ao: autoAo,
+
+                        scoreAka: 0, scoreAo: 0, 
+
+                        teamScoreAka: 0, teamScoreAo: 0,
+
+                        senshuAka: false, senshuAo: false,
+
+                        penaltiesAka: [], penaltiesAo: [],
+
+                        winner: (autoAka.name || autoAka.unit) && (!autoAo.name && !autoAo.unit) && m2.isBye ? autoAka : null, 
+
+                        isBye: false
+
+                    });
+
+                }
+
+                bracketRounds.push(nextRoundMatches);
+
+                currentRoundMatchesList = nextRoundMatches;
+
+            }
+
+
+
+            return { rounds: bracketRounds };
+
+        }
+
+
+
+        function generateAllDraws() {
+
+            if(appData.contents.length === 0) return alert("Chưa có nội dung!");
+
+            appData.matches = [];
+
+            appData.contents.forEach(c => {
+
+                let isTeam = c.category.toLowerCase().includes('đồng đội');
+
+                let parts = isTeam ? appData.teams.filter(t => t.content === c.name) : appData.athletes.filter(a => a.content === c.name);
+
+                if(parts.length >= 2) {
+
+                    let draw = generateDatasportDraws(parts);
+
+                    appData.matches.push({ content: c.name, mat: c.mat || 'Thảm 1', ...draw });
+
+                }
+
+            });
+
+            saveData();
+
+            alert("Bốc thăm toàn giải hoàn tất và đồng bộ realtime!");
+
+            renderAll();
+
+        }
+
+
+
+        function generateSingleDraw(contentName) {
+
+            let cObj = appData.contents.find(c => c.name === contentName);
+
+            let isTeam = cObj && cObj.category.toLowerCase().includes('đồng đội');
+
+            let parts = isTeam ? appData.teams.filter(t => t.content === contentName) : appData.athletes.filter(a => a.content === contentName);
+
+            if(parts.length < 2) return alert("Cần tối thiểu 2 VĐV hoặc 2 Đội tham gia để bốc thăm!");
+
+            appData.matches = appData.matches.filter(m => m.content !== contentName);
+
+            let draw = generateDatasportDraws(parts);
+
+            appData.matches.push({ content: contentName, mat: cObj?.mat || 'Thảm 1', ...draw });
+
+            saveData();
+
+            openBracketDetail(contentName);
+
+        }
+
+
+
+        function openExportModal() {
+
+            let sel = document.getElementById('export-modal-content');
+
+            let opts = '';
+
+            appData.contents.forEach(c => opts += `<option value="${c.name}">${c.name}</option>`);
+
+            sel.innerHTML = opts || '<option value="">Trống</option>';
+
+            document.getElementById('export-bracket-modal').classList.remove('hidden');
+
+        }
+
+        function closeExportModal() { document.getElementById('export-bracket-modal').classList.add('hidden'); }
+
+
+
+        function openExportResultModal() {
+
+            let tbody = document.getElementById('export-result-modal-tbody');
+
+            if(!tbody) return;
+
+            if(appData.contents.length === 0) {
+
+                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-500">Chưa có nội dung thi đấu nào.</td></tr>`;
+
+            } else {
+
+                let html = '';
+
+                appData.contents.forEach(c => {
+
+                    let res = appData.results.find(r => r.contentName === c.name);
+
+                    let hasFinished = !!(res && res.gold);
+
+                    let goldName = hasFinished ? (res.gold.name || res.gold.unit || '---') : 'Chưa có kết quả';
+
+                    
+
+                    let opacityClass = hasFinished ? 'opacity-100' : 'opacity-40 bg-slate-50';
+
+                    let statusBadge = hasFinished ? '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-[10px]">Đã hoàn thành</span>' : '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold text-[10px]">Chưa đánh</span>';
+
+
+
+                    html += `<tr class="border-b ${opacityClass}">
+
+                        <td class="p-2.5 text-center"><input type="checkbox" class="modal-content-cb w-4 h-4 text-red-600 rounded cursor-pointer" data-content="${encodeURIComponent(c.name)}" ${hasFinished ? 'checked' : ''}></td>
+
+                        <td class="p-2.5 font-bold">${c.name}</td>
+
+                        <td class="p-2.5">${statusBadge}</td>
+
+                        <td class="p-2.5 text-yellow-600 font-bold">${goldName}</td>
+
+                    </tr>`;
+
+                });
+
+                tbody.innerHTML = html;
+
+            }
+
+            document.getElementById('export-result-modal').classList.remove('hidden');
+
+        }
+
+
+
+        function closeExportResultModal() {
+
+            document.getElementById('export-result-modal').classList.add('hidden');
+
+        }
+
+
+
+        function toggleModalSelectAll(status) {
+
+            document.querySelectorAll('.modal-content-cb').forEach(cb => cb.checked = status);
+
+        }
+
+
+
+        async function confirmDownloadSelectedPDF() {
+
+            let checkboxes = document.querySelectorAll('.modal-content-cb:checked');
+
+            if(checkboxes.length === 0) return alert("Vui lòng chọn ít nhất một nội dung cần xuất PDF!");
+
+            let selectedNames = Array.from(checkboxes).map(cb => decodeURIComponent(cb.getAttribute('data-content')));
+
+            closeExportResultModal();
+
+            
+
+            let printDiv = document.createElement('div');
+
+            printDiv.style.position = 'absolute'; printDiv.style.left = '-9999px'; printDiv.style.top = '0';
+
+            printDiv.style.width = '800px'; printDiv.style.background = '#ffffff'; printDiv.style.padding = '30px'; printDiv.style.fontFamily = 'Inter, sans-serif';
+
+
+
+            let htmlContent = `
+
+                <div style="text-align: center; margin-bottom: 20px;">
+
+                    <h2 style="font-size: 16px; font-weight: bold; color: #334155; text-transform: uppercase;">${appData.tournamentTitle}</h2>
+
+                    <h1 style="font-size: 20px; font-weight: 900; color: #b91c1c; margin-top: 5px; text-transform: uppercase;">KẾT QUẢ THI ĐẤU CÁC NỘI DUNG ĐÃ CHỌN</h1>
+
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; border: 2px solid #1e293b;">
+
+                    <thead>
+
+                        <tr style="background-color: #f1f5f9;">
+
+                            <th style="border: 1px solid #1e293b; padding: 8px; width: 40px;">#</th>
+
+                            <th style="border: 1px solid #1e293b; padding: 8px; text-align: left;">Nội Dung</th>
+
+                            <th style="border: 1px solid #1e293b; padding: 8px;">🥇 Huy Chương Vàng</th>
+
+                            <th style="border: 1px solid #1e293b; padding: 8px;">🥈 Huy Chương Bạc</th>
+
+                            <th style="border: 1px solid #1e293b; padding: 8px;">🥉 Huy Chương Đồng</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+            `;
+
+
+
+            let idx = 1;
+
+            appData.contents.forEach(c => {
+
+                if(selectedNames.includes(c.name)) {
+
+                    let res = appData.results.find(r => r.contentName === c.name);
+
+                    let gold = res?.gold?.name || res?.gold?.unit || res?.gold?.club || '---';
+
+                    let silver = res?.silver?.name || res?.silver?.unit || res?.silver?.club || '---';
+
+                    htmlContent += `
+
+                        <tr>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px; font-weight: bold;">${idx++}</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px; text-align: left; font-weight: bold;">${c.name}</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px; color: #b45309; font-weight: bold;">${gold}</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px;">${silver}</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px; font-style: italic; color: #64748b;">Đồng hạng</td>
+
+                        </tr>
+
+                    `;
+
+                }
+
+            });
+
+
+
+            htmlContent += `</tbody></table>`;
+
+            printDiv.innerHTML = htmlContent;
+
+            document.body.appendChild(printDiv);
+
+
+
+            try {
+
+                let canvas = await html2canvas(printDiv, { scale: 2, useCORS: true });
+
+                let imgData = canvas.toDataURL('image/png');
+
+                const { jsPDF } = window.jspdf;
+
+                const pdf = new jsPDF('p', 'mm', 'a4');
+
+                let pdfWidth = pdf.internal.pageSize.getWidth();
+
+                let pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+                pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight);
+
+                pdf.save('Ket_Qua_Cac_Noi_Dung_Chon_Loc.pdf');
+
+            } catch (e) { alert("Lỗi xuất file PDF!"); }
+
+            finally { document.body.removeChild(printDiv); }
+
+        }
+
+
+
+        function printBracketsByMat() {
+
+            let mat = document.getElementById('export-modal-mat').value;
+
+            let matchContents = appData.contents.filter(c => (c.mat || 'Thảm 1') === mat).map(c => c.name);
+
+            let matches = appData.matches.filter(m => matchContents.includes(m.content));
+
+            if(matches.length === 0) return alert("Thảm này chưa có sơ đồ!");
+
+            let html = ''; matches.forEach(b => html += buildDatasportBracketHTML(b.content));
+
+            document.getElementById('bracket-container').innerHTML = html;
+
+            closeExportModal(); switchTab('bracket-detail');
+
+        }
+
+
+
+        function printBracketBySingleContent() {
+
+            let c = document.getElementById('export-modal-content').value;
+
+            if(!c) return; closeExportModal(); openBracketDetail(c);
+
+        }
+
+
+
+        function printAllBrackets() {
+
+            if(appData.matches.length === 0) return alert("Chưa có sơ đồ!");
+
+            let html = ''; appData.matches.forEach(b => html += buildDatasportBracketHTML(b.content));
+
+            document.getElementById('bracket-container').innerHTML = html;
+
+            closeExportModal(); switchTab('bracket-detail');
+
+        }
+
+
+
+        function buildDatasportBracketHTML(contentName) {
+
+            const bracket = appData.matches.find(m => m.content === contentName);
+
+            if(!bracket) return '';
+
+            let finalM = bracket.rounds[bracket.rounds.length - 1][0];
+
+            let goldObj = finalM?.winner;
+
+            let gold = goldObj ? (goldObj.name || goldObj.unit || goldObj.club) : '---';
+
+            let silverObj = goldObj ? (goldObj.name === finalM.aka.name || goldObj.unit === finalM.aka.unit ? finalM.ao : finalM.aka) : null;
+
+            let silver = silverObj ? (silverObj.name || silverObj.unit || silverObj.club) : '---';
+
+            let logo = getAppLogoSrc();
+
+
+
+            let html = `<div class="bracket-page border-2 border-slate-200 p-3 rounded-xl shadow-md mb-8">
+
+                <div class="absolute right-3 top-6 z-20 w-[150px] bg-slate-50 border border-slate-300 rounded p-1 shadow-sm">
+
+                    <div class="bg-red-600 text-white text-center font-black text-[7.5px] py-0.5 rounded mb-1 uppercase">KẾT QUẢ</div>
+
+                    <div class="space-y-0.5 text-[8.5px]">
+
+                        <div class="flex justify-between border-b pb-0.5"><span class="font-bold text-yellow-600">1. HCV:</span><span class="truncate max-w-[90px]">${gold}</span></div>
+
+                        <div class="flex justify-between border-b pb-0.5"><span class="font-bold text-slate-600">2. HCB:</span><span class="truncate max-w-[90px]">${silver}</span></div>
+
+                        <div class="flex justify-between border-b pb-0.5"><span class="font-bold text-amber-600">3. HCĐ:</span><span class="italic">Đồng hạng</span></div>
+
+                        <div class="flex justify-between"><span class="font-bold text-amber-600">3. HCĐ:</span><span class="italic">Đồng hạng</span></div>
+
+                    </div>
+
+                </div>
+
+                <div class="border-b-2 border-slate-200 pb-2 mb-2 flex justify-between items-center relative">
+
+                    <div class="flex items-center space-x-3">
+
+                        <div class="w-12 h-12 rounded-full bg-white border-2 border-red-600 flex items-center justify-center p-0.5 overflow-hidden">
+
+                            <img src="${logo}" class="w-full h-full object-contain" onerror="this.src='logo.png'">
+
+                        </div>
+
+                        <div>
+
+                            <h3 class="text-[9px] font-bold text-slate-600 uppercase">${appData.tournamentTitle}</h3>
+
+                            <h2 class="text-[12px] font-black text-slate-800 uppercase mt-0.5">${contentName}</h2>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="bracket-rounds-wrapper py-1 relative my-auto">`;
+
+
+
+            bracket.rounds.forEach((round, rIdx) => {
+
+                html += `<div class="bracket-round-column relative">`;
+
+                round.forEach((m, mIdx) => {
+
+                    let aka = m.aka?.name || m.aka?.unit || m.aka?.club || '';
+
+                    let ao = m.ao?.name || m.ao?.unit || m.ao?.club || '';
+
+                    let isAkaWin = m.winner && (m.winner.name === m.aka?.name || m.winner.unit === m.aka?.unit);
+
+                    let isAoWin = m.winner && (m.winner.name === m.ao?.name || m.winner.unit === m.ao?.unit);
+
+                    html += `<div class="bracket-match-wrapper ${mIdx%2===0?'is-pair-top':''}">
+
+                        <div class="sd-bracket-card" onclick="jumpToScoreboard('${contentName.replace(/'/g,"\\'")}', '${m.id}')">
+
+                            <div class="sd-row sd-row-aka ${isAkaWin?'font-bold text-red-700':''}"><div class="sd-color-bar"></div><span class="sd-name-text truncate">${aka}</span>${m.senshuAka?'<span class="senshu-badge">SENSHU</span>':''}</div>
+
+                            <div class="sd-row sd-row-ao ${isAoWin?'font-bold text-blue-700':''}"><div class="sd-color-bar"></div><span class="sd-name-text truncate">${ao}</span>${m.senshuAo?'<span class="senshu-badge">SENSHU</span>':''}</div>
+
+                        </div>
+
+                    </div>`;
+
+                });
+
+                html += `</div>`;
+
+            });
+
+            html += `</div></div>`;
+
+            return html;
+
+        }
+
+
+
+        async function downloadBracketPDF(e) {
+
+            let container = document.getElementById('bracket-container');
+
+            if(!container) return;
+
+            let pages = container.querySelectorAll('.bracket-page');
+
+            try {
+
+                const { jsPDF } = window.jspdf;
+
+                const pdf = new jsPDF('landscape', 'mm', 'a4');
+
+                for (let i = 0; i < pages.length; i++) {
+
+                    let canvas = await html2canvas(pages[i], { scale: 2, useCORS: true, allowTaint: false });
+
+                    let imgData = canvas.toDataURL('image/png');
+
+                    if (i > 0) pdf.addPage('a4', 'landscape');
+
+                    pdf.addImage(imgData, 'PNG', 0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight());
+
+                }
+
+                pdf.save('So_Do_Thi_Dau.pdf');
+
+            } catch(err) { alert("Lỗi xuất PDF!"); }
+
+        }
+
+
+
+        function downloadBracketWord() {
+
+            let c = document.getElementById('bracket-container');
+
+            if(!c) return;
+
+            let blob = new Blob(['\ufeff', c.innerHTML], { type: 'application/msword' });
+
+            let a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+
+            a.download = 'So_Do_Thi_Dau.doc'; a.click();
+
+        }
+
+
+
+        function openBracketDetail(name) {
+
+            activeContentNameForAudience = name;
+
+            document.getElementById('bracket-container').innerHTML = buildDatasportBracketHTML(name);
+
+            switchTab('bracket-detail');
+
+        }
+
+
+
+        function jumpToScoreboard(content, matchId) {
+
+            switchTab('scoreboard');
+
+            document.getElementById('sb-select-content').value = content;
+
+            onScoreboardContentChange();
+
+            document.getElementById('sb-select-match').value = matchId;
+
+            selectMatchOnScoreboard(matchId);
+
+        }
+
+
+
+        function renderContentBoxes() {
+
+            let grid = document.getElementById('content-boxes-grid');
+
+            let mat = document.getElementById('filter-mat-select').value;
+
+            if(!grid) return;
+
+            let contents = mat === 'ALL' ? appData.contents : appData.contents.filter(c => c.mat === mat);
+
+            if(contents.length === 0) { grid.innerHTML = '<p class="text-slate-500 py-4 col-span-3 text-center">Trống.</p>'; return; }
+
+            let html = '';
+
+            contents.forEach(c => {
+
+                let bracket = appData.matches.find(m => m.content === c.name);
+
+                let has = !!bracket;
+
+                let isTeam = c.category.toLowerCase().includes('đồng đội');
+
+                let count = isTeam ? appData.teams.filter(t => t.content === c.name).length : appData.athletes.filter(a => a.content === c.name).length;
+
+                
+
+                let totalMatches = 0, playedMatches = 0;
+
+                if (has && bracket.rounds) {
+
+                    bracket.rounds.forEach(round => {
+
+                        round.forEach(m => {
+
+                            if (!m.isBye) {
+
+                                totalMatches++;
+
+                                if (m.winner && (m.winner.name || m.winner.unit)) { 
+
+                                    playedMatches++; 
+
+                                }
+
+                            }
+
+                        });
+
+                    });
+
+                }
+
+
+
+                html += `<div class="border-2 ${has?'border-emerald-500 bg-emerald-50/20':'border-slate-200'} rounded-2xl p-4 bg-white shadow-sm flex flex-col justify-between">
+
+                    <div>
+
+                        <div class="flex justify-between items-center mb-1">
+
+                            <span class="text-xs font-bold px-2 py-0.5 bg-red-50 text-red-700 rounded">${c.mat||'Thảm 1'}</span>
+
+                            <span class="text-xs font-bold px-2 py-0.5 bg-blue-50 text-blue-700 rounded">${count} ${isTeam?'Đội':'VĐV'}</span>
+
+                        </div>
+
+                        <h4 class="font-bold text-sm text-slate-800">${c.name}</h4>
+
+                        ${has ? `<div class="text-[11px] text-slate-500 font-semibold mt-1">Số trận: <span class="text-emerald-600 font-bold">${playedMatches}/${totalMatches}</span> đã đấu</div>` : `<div class="text-[11px] text-amber-600 font-semibold mt-1 italic">Chưa bốc thăm</div>`}
+
+                    </div>
+
+                    <div class="flex space-x-2 pt-3">
+
+                        ${has?`<button onclick="openBracketDetail('${c.name.replace(/'/g,"\\'")}')" class="flex-1 bg-red-600 text-white py-1.5 rounded-lg text-xs font-bold shadow cursor-pointer">Xem</button>`:''}
+
+                        <button onclick="generateSingleDraw('${c.name.replace(/'/g,"\\'")}')" class="flex-1 bg-slate-100 text-slate-700 border py-1.5 rounded-lg text-xs font-bold shadow cursor-pointer">Bốc Thăm</button>
+
+                    </div>
+
+                </div>`;
+
+            });
+
+            grid.innerHTML = html;
+
+        }
+
+
+
+        let timerInterval = null;
+
+        let totalMilliseconds = 90 * 1000;
+
+        let isTimerRunning = false;
+
+
+
+        function playLoudBeep(frequency = 1000, duration = 400) {
+
+            try {
+
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+
+                if (!window.audioCtx) { window.audioCtx = new AudioContext(); }
+
+                const ctx = window.audioCtx;
+
+                if (ctx.state === 'suspended') { ctx.resume(); }
+
+
+
+                let osc = ctx.createOscillator();
+
+                let gain = ctx.createGain();
+
+
+
+                osc.type = 'triangle';
+
+                osc.frequency.setValueAtTime(frequency, ctx.currentTime);
+
+                gain.gain.setValueAtTime(0.9, ctx.currentTime);
+
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (duration / 1000));
+
+
+
+                osc.connect(gain);
+
+                gain.connect(ctx.destination);
+
+                osc.start();
+
+                osc.stop(ctx.currentTime + (duration / 1000));
+
+            } catch (e) {}
+
+        }
+
+
+
+        let currentMatchStats = {
+
+            aka: { ipponPlus: 0, ipponMinus: 0, wazaariPlus: 0, wazaariMinus: 0, yukoPlus: 0, yukoMinus: 0 },
+
+            ao:  { ipponPlus: 0, ipponMinus: 0, wazaariPlus: 0, wazaariMinus: 0, yukoPlus: 0, yukoMinus: 0 }
+
+        };
+
+
+
+        let actionHistory = [];
+
+
+
+        function logAction(faction, actionText) {
+
+            let timeStr = document.getElementById('admin-preview-timer')?.innerText || "00:00.0";
+
+            let vdvName = "TBD";
+
+            if (currentMatch) {
+
+                vdvName = faction === 'aka' ? (currentMatch.aka.name || currentMatch.aka.unit || 'AKA') : (currentMatch.ao.name || currentMatch.ao.unit || 'AO');
+
+            }
+
+            actionHistory.unshift({
+
+                time: timeStr, faction: faction,
+
+                text: `${faction === 'aka' ? 'ĐỎ' : 'XANH'} (${vdvName}): ${actionText}`
+
+            });
+
+            if (actionHistory.length > 30) actionHistory.pop();
+
+            renderActionHistory();
+
+        }
+
+
+
+        function renderActionHistory() {
+
+            let container = document.getElementById('action-history-list');
+
+            if(!container) return;
+
+            if(actionHistory.length === 0) {
+
+                container.innerHTML = '<div class="text-slate-400 italic text-center py-6">Chưa có thao tác điểm nào...</div>';
+
+                return;
+
+            }
+
+            let html = '';
+
+            actionHistory.forEach(item => {
+
+                let badgeColor = item.faction === 'aka' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-blue-100 text-blue-700 border-blue-200';
+
+                html += `<div class="flex items-center justify-between p-1.5 rounded-lg border bg-slate-50 ${badgeColor}">
+
+                    <span class="font-mono font-bold text-[10px] text-slate-500">[${item.time}]</span>
+
+                    <span class="font-semibold text-xs flex-1 ml-2 truncate">${item.text}</span>
+
+                </div>`;
+
+            });
+
+            container.innerHTML = html;
+
+        }
+
+
+
+        function clearActionHistory() { actionHistory = []; renderActionHistory(); }
+
+
+
+        function resetCurrentMatchScore() {
+
+            if(!currentMatch) return alert("Vui lòng chọn trận đấu trước!");
+
+            if(!confirm("Bạn có chắc chắn muốn xóa toàn bộ tỉ số, điểm số, lỗi phạt và trạng thái của trận này không?")) return;
+
+            
+
+            currentMatch.scoreAka = 0;
+
+            currentMatch.scoreAo = 0;
+
+            currentMatch.senshuAka = false;
+
+            currentMatch.senshuAo = false;
+
+            currentMatch.penaltiesAka = [];
+
+            currentMatch.penaltiesAo = [];
+
+            currentMatch.winner = null;
+
+
+
+            currentMatchStats = {
+
+                aka: { ipponPlus: 0, ipponMinus: 0, wazaariPlus: 0, wazaariMinus: 0, yukoPlus: 0, yukoMinus: 0 },
+
+                ao:  { ipponPlus: 0, ipponMinus: 0, wazaariPlus: 0, wazaariMinus: 0, yukoPlus: 0, yukoMinus: 0 }
+
+            };
+
+
+
+            document.getElementById('admin-preview-aka-score').innerText = '0';
+
+            document.getElementById('admin-preview-ao-score').innerText = '0';
+
+
+
+            updateSenshuUI();
+
+            updatePenaltiesUI();
+
+            actionHistory = [];
+
+            renderActionHistory();
+
+            resetTimer();
+
+            saveData();
+
+            updateAudienceWindow();
+
+            alert("Đã xóa toàn bộ tỉ số trận đấu hiện tại!");
+
+        }
+
+
+
+        function resetTeamMatchScore() {
+
+            if(!currentMatch) return alert("Vui lòng chọn trận đấu trước!");
+
+            if(!confirm("Bạn có chắc chắn muốn đặt lại tỷ số thắng các trận đơn đồng đội về 0 - 0 không?")) return;
+
+
+
+            currentMatch.teamScoreAka = 0;
+
+            currentMatch.teamScoreAo = 0;
+
+
+
+            let teamScoreAkaEl = document.getElementById('admin-team-score-aka');
+
+            let teamScoreAoEl = document.getElementById('admin-team-score-ao');
+
+            if(teamScoreAkaEl) teamScoreAkaEl.innerText = '0';
+
+            if(teamScoreAoEl) teamScoreAoEl.innerText = '0';
+
+
+
+            saveData();
+
+            updateAudienceWindow();
+
+            alert("Đã đặt lại tỷ số đồng đội về 0 - 0!");
+
+        }
+
+
+
+        function updateScore(faction, pts, actionLabel = '', pointType = 0) {
+
+            if(!currentMatch) return;
+
+            if (pointType === 3) {
+
+                if (pts > 0) currentMatchStats[faction].ipponPlus++; else currentMatchStats[faction].ipponMinus++;
+
+            } else if (pointType === 2) {
+
+                if (pts > 0) currentMatchStats[faction].wazaariPlus++; else currentMatchStats[faction].wazaariMinus++;
+
+            } else if (pointType === 1) {
+
+                if (pts > 0) currentMatchStats[faction].yukoPlus++; else currentMatchStats[faction].yukoMinus++;
+
+            }
+
+
+
+            if(faction === 'aka') {
+
+                currentMatch.scoreAka = Math.max(0, (currentMatch.scoreAka || 0) + pts);
+
+                document.getElementById('admin-preview-aka-score').innerText = currentMatch.scoreAka;
+
+            } else {
+
+                currentMatch.scoreAo = Math.max(0, (currentMatch.scoreAo || 0) + pts);
+
+                document.getElementById('admin-preview-ao-score').innerText = currentMatch.scoreAo;
+
+            }
+
+            
+
+            if(actionLabel) { logAction(faction, actionLabel); }
+
+            saveDataWithoutRerenderingScores();
+
+            updateAudienceWindow();
+
+        }
+
+
+
+        function addPenalty(faction, penaltyType) {
+
+            if(!currentMatch) return;
+
+            if(!currentMatch.penaltiesAka) currentMatch.penaltiesAka = [];
+
+            if(!currentMatch.penaltiesAo) currentMatch.penaltiesAo = [];
+
+
+
+            if(faction === 'aka') { currentMatch.penaltiesAka.push(penaltyType); }
+
+            else { currentMatch.penaltiesAo.push(penaltyType); }
+
+
+
+            logAction(faction, `Phạm lỗi ${penaltyType}`);
+
+            updatePenaltiesUI();
+
+            saveDataWithoutRerenderingScores();
+
+            updateAudienceWindow();
+
+        }
+
+
+
+        // HÀM XÓA RIÊNG TỪNG LỖI THEO YÊU CẦU (-C1, -C2, -C3, -HC, -HS)
+
+        function removeSpecificPenalty(faction, penaltyType) {
+
+            if(!currentMatch) return;
+
+            let penaltiesList = faction === 'aka' ? currentMatch.penaltiesAka : currentMatch.penaltiesAo;
+
+            if(!penaltiesList || penaltiesList.length === 0) return alert("Không có lỗi nào để xóa!");
+
+
+
+            let idx = penaltiesList.lastIndexOf(penaltyType);
+
+            if(idx !== -1) {
+
+                penaltiesList.splice(idx, 1);
+
+                logAction(faction, `Xóa lỗi ${penaltyType}`);
+
+                updatePenaltiesUI();
+
+                saveDataWithoutRerenderingScores();
+
+                updateAudienceWindow();
+
+            } else {
+
+                alert(`VĐV này chưa phạm lỗi ${penaltyType}!`);
+
+            }
+
+        }
+
+
+
+        function removePenaltyAtIndex(faction, index) {
+
+            if(!currentMatch) return;
+
+            if(faction === 'aka' && currentMatch.penaltiesAka) {
+
+                let removed = currentMatch.penaltiesAka.splice(index, 1);
+
+                logAction('aka', `Xóa lỗi ${removed[0]}`);
+
+            } else if(faction === 'ao' && currentMatch.penaltiesAo) {
+
+                let removed = currentMatch.penaltiesAo.splice(index, 1);
+
+                logAction('ao', `Xóa lỗi ${removed[0]}`);
+
+            }
+
+            updatePenaltiesUI();
+
+            saveDataWithoutRerenderingScores();
+
+            updateAudienceWindow();
+
+        }
+
+
+
+        function resetPenalties(faction) {
+
+            if(!currentMatch) return;
+
+            if(faction === 'aka') { currentMatch.penaltiesAka = []; }
+
+            else { currentMatch.penaltiesAo = []; }
+
+            updatePenaltiesUI();
+
+            saveDataWithoutRerenderingScores();
+
+            updateAudienceWindow();
+
+        }
+
+
+
+        // --- CẬP NHẬT GIAO DIỆN HIỂN THỊ LỖI CỐ ĐỊNH 5 Ô: C1(1), C2(2), C3(3), HC(4), HS(5) ---
+
+        function updatePenaltiesUI() {
+
+            if(!currentMatch) return;
+
+            let pAka = currentMatch.penaltiesAka || [];
+
+            let pAo = currentMatch.penaltiesAo || [];
+
+
+
+            // Kiểm tra xem trong mảng lỗi có chứa các loại lỗi cụ thể hay không
+
+            let hasAkaC1 = pAka.includes('C1');
+
+            let hasAkaC2 = pAka.includes('C2');
+
+            let hasAkaC3 = pAka.includes('C3');
+
+            let hasAkaHC = pAka.includes('HC');
+
+            let hasAkaHS = pAka.includes('HS');
+
+
+
+            let hasAoC1 = pAo.includes('C1');
+
+            let hasAoC2 = pAo.includes('C2');
+
+            let hasAoC3 = pAo.includes('C3');
+
+            let hasAoHC = pAo.includes('HC');
+
+            let hasAoHS = pAo.includes('HS');
+
+
+
+            let boxAkaEl = document.getElementById('penalty-boxes-aka');
+
+            if(boxAkaEl) {
+
+                let htmlAka = `
+
+                    <div class="flex-1 h-8 rounded border ${hasAkaC1 ? 'bg-amber-500 border-amber-400 text-black font-black text-xs shadow-inner' : 'bg-red-950/80 border-red-900 text-red-700/40 text-[10px]'} flex items-center justify-center">${hasAkaC1 ? 'C1' : ''}</div>
+
+                    <div class="flex-1 h-8 rounded border ${hasAkaC2 ? 'bg-amber-500 border-amber-400 text-black font-black text-xs shadow-inner' : 'bg-red-950/80 border-red-900 text-red-700/40 text-[10px]'} flex items-center justify-center">${hasAkaC2 ? 'C2' : ''}</div>
+
+                    <div class="flex-1 h-8 rounded border ${hasAkaC3 ? 'bg-amber-500 border-amber-400 text-black font-black text-xs shadow-inner' : 'bg-red-950/80 border-red-900 text-red-700/40 text-[10px]'} flex items-center justify-center">${hasAkaC3 ? 'C3' : ''}</div>
+
+                    <div class="flex-1 h-8 rounded border ${hasAkaHC ? 'bg-amber-500 border-amber-400 text-black font-black text-xs shadow-inner' : 'bg-red-950/80 border-red-900 text-red-700/40 text-[10px]'} flex items-center justify-center">${hasAkaHC ? 'HC' : ''}</div>
+
+                    <div class="flex-1 h-8 rounded border ${hasAkaHS ? 'bg-amber-500 border-amber-400 text-black font-black text-xs shadow-inner' : 'bg-red-950/80 border-red-900 text-red-700/40 text-[10px]'} flex items-center justify-center">${hasAkaHS ? 'HS' : ''}</div>
+
+                `;
+
+                boxAkaEl.innerHTML = htmlAka;
+
+            }
+
+
+
+            let boxAoEl = document.getElementById('penalty-boxes-ao');
+
+            if(boxAoEl) {
+
+                let htmlAo = `
+
+                    <div class="flex-1 h-8 rounded border ${hasAoC1 ? 'bg-amber-500 border-amber-400 text-black font-black text-xs shadow-inner' : 'bg-blue-950/80 border-blue-900 text-blue-700/40 text-[10px]'} flex items-center justify-center">${hasAoC1 ? 'C1' : ''}</div>
+
+                    <div class="flex-1 h-8 rounded border ${hasAoC2 ? 'bg-amber-500 border-amber-400 text-black font-black text-xs shadow-inner' : 'bg-blue-950/80 border-blue-900 text-blue-700/40 text-[10px]'} flex items-center justify-center">${hasAoC2 ? 'C2' : ''}</div>
+
+                    <div class="flex-1 h-8 rounded border ${hasAoC3 ? 'bg-amber-500 border-amber-400 text-black font-black text-xs shadow-inner' : 'bg-blue-950/80 border-blue-900 text-blue-700/40 text-[10px]'} flex items-center justify-center">${hasAoC3 ? 'C3' : ''}</div>
+
+                    <div class="flex-1 h-8 rounded border ${hasAoHC ? 'bg-amber-500 border-amber-400 text-black font-black text-xs shadow-inner' : 'bg-blue-950/80 border-blue-900 text-blue-700/40 text-[10px]'} flex items-center justify-center">${hasAoHC ? 'HC' : ''}</div>
+
+                    <div class="flex-1 h-8 rounded border ${hasAoHS ? 'bg-amber-500 border-amber-400 text-black font-black text-xs shadow-inner' : 'bg-blue-950/80 border-blue-900 text-blue-700/40 text-[10px]'} flex items-center justify-center">${hasAoHS ? 'HS' : ''}</div>
+
+                `;
+
+                boxAoEl.innerHTML = htmlAo;
+
+            }
+
+        }
+
+
+
+        async function exportActionSummaryPDF() {
+
+            if (!currentMatch) return alert("Chưa chọn trận đấu nào!");
+
+            let akaName = currentMatch.aka.name || currentMatch.aka.unit || 'VĐV/Đội ĐỎ (AKA)';
+
+            let aoName = currentMatch.ao.name || currentMatch.ao.unit || 'VĐV/Đội XANH (AO)';
+
+            let contentTitle = activeContentNameForAudience || 'Nội dung Kumite';
+
+            let matName = currentMatch.mat || 'Thảm 1';
+
+
+
+            let statsAka = currentMatchStats.aka;
+
+            let statsAo = currentMatchStats.ao;
+
+            let akaIpponRem = statsAka.ipponPlus - statsAka.ipponMinus;
+
+            let akaWazaRem = statsAka.wazaariPlus - statsAka.wazaariMinus;
+
+            let akaYukoRem = statsAka.yukoPlus - statsAka.yukoMinus;
+
+            let aoIpponRem = statsAo.ipponPlus - statsAo.ipponMinus;
+
+            let aoWazaRem = statsAo.wazaariPlus - statsAo.wazaariMinus;
+
+            let aoYukoRem = statsAo.yukoPlus - statsAo.yukoMinus;
+
+
+
+            let printDiv = document.createElement('div');
+
+            printDiv.style.position = 'absolute'; printDiv.style.left = '-9999px'; printDiv.style.top = '0';
+
+            printDiv.style.width = '800px'; printDiv.style.background = '#ffffff'; printDiv.style.padding = '30px'; printDiv.style.fontFamily = 'Inter, sans-serif';
+
+
+
+            printDiv.innerHTML = `
+
+                <div style="text-align: center; margin-bottom: 20px;">
+
+                    <h2 style="font-size: 16px; font-weight: bold; color: #334155; text-transform: uppercase;">${appData.tournamentTitle}</h2>
+
+                    <h1 style="font-size: 20px; font-weight: 900; color: #b91c1c; margin-top: 5px; text-transform: uppercase;">THỐNG KÊ SỐ LẦN BẤM ĐIỂM & LỖI TRẬN ĐẤU</h1>
+
+                    <div style="font-size: 14px; font-weight: bold; color: #475569; margin-top: 8px;">Nội dung: ${contentTitle} | ${matName}</div>
+
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; border: 2px solid #1e293b;">
+
+                    <thead>
+
+                        <tr style="background-color: #f1f5f9;">
+
+                            <th rowspan="2" style="border: 1px solid #1e293b; padding: 10px; width: 120px; font-weight: bold;">Kỹ thuật</th>
+
+                            <th colspan="3" style="border: 1px solid #1e293b; padding: 8px; color: #dc2626; font-weight: bold; background-color: #fee2e2;">AKA: ${akaName}</th>
+
+                            <th colspan="3" style="border: 1px solid #1e293b; padding: 8px; color: #2563eb; font-weight: bold; background-color: #dbeafe;">AO: ${aoName}</th>
+
+                        </tr>
+
+                        <tr style="background-color: #f8fafc; font-size: 11px;">
+
+                            <th style="border: 1px solid #1e293b; padding: 6px;">Cộng</th><th style="border: 1px solid #1e293b; padding: 6px;">Trừ</th><th style="border: 1px solid #1e293b; padding: 6px; font-weight: bold;">Còn lại</th>
+
+                            <th style="border: 1px solid #1e293b; padding: 6px; font-weight: bold;">Còn lại</th><th style="border: 1px solid #1e293b; padding: 6px;">Cộng</th><th style="border: 1px solid #1e293b; padding: 6px;">Trừ</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        <tr>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px; font-weight: bold; text-align: left;">Ippon (+3)</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px;">${statsAka.ipponPlus}</td><td style="border: 1px solid #1e293b; padding: 8px;">${statsAka.ipponMinus}</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px; font-weight: bold; background-color: #f8fafc;">${akaIpponRem}</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px; font-weight: bold; background-color: #f8fafc;">${aoIpponRem}</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px;">${statsAo.ipponPlus}</td><td style="border: 1px solid #1e293b; padding: 8px;">${statsAo.ipponMinus}</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px; font-weight: bold; text-align: left;">Waza-ari (+2)</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px;">${statsAka.wazaariPlus}</td><td style="border: 1px solid #1e293b; padding: 8px;">${statsAka.wazaariMinus}</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px; font-weight: bold; background-color: #f8fafc;">${akaWazaRem}</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px; font-weight: bold; background-color: #f8fafc;">${aoWazaRem}</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px;">${statsAo.wazaariPlus}</td><td style="border: 1px solid #1e293b; padding: 8px;">${statsAo.wazaariMinus}</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px; font-weight: bold; text-align: left;">Yuko (+1)</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px;">${statsAka.yukoPlus}</td><td style="border: 1px solid #1e293b; padding: 8px;">${statsAka.yukoMinus}</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px; font-weight: bold; background-color: #f8fafc;">${akaYukoRem}</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px; font-weight: bold; background-color: #f8fafc;">${aoYukoRem}</td>
+
+                            <td style="border: 1px solid #1e293b; padding: 8px;">${statsAo.yukoPlus}</td><td style="border: 1px solid #1e293b; padding: 8px;">${statsAo.yukoMinus}</td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            `;
+
+
+
+            document.body.appendChild(printDiv);
+
+            try {
+
+                let canvas = await html2canvas(printDiv, { scale: 2, useCORS: true });
+
+                let imgData = canvas.toDataURL('image/png');
+
+                const { jsPDF } = window.jspdf;
+
+                const pdf = new jsPDF('landscape', 'mm', 'a4');
+
+                let pdfWidth = pdf.internal.pageSize.getWidth();
+
+                let pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+                pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight);
+
+                pdf.save(`ThongKeSoLanBamDiem_${akaName}_vs_${aoName}.pdf`);
+
+            } catch (e) { alert("Lỗi xuất file PDF!"); }
+
+            finally { document.body.removeChild(printDiv); }
+
+        }
+
+
+
+        function toggleSenshu(faction) {
+
+            if(!currentMatch) return;
+
+            if(faction === 'aka') {
+
+                currentMatch.senshuAka = !currentMatch.senshuAka;
+
+                if(currentMatch.senshuAka) currentMatch.senshuAo = false;
+
+            } else {
+
+                currentMatch.senshuAo = !currentMatch.senshuAo;
+
+                if(currentMatch.senshuAo) currentMatch.senshuAka = false;
+
+            }
+
+            updateSenshuUI();
+
+            saveDataWithoutRerenderingScores();
+
+            updateAudienceWindow();
+
+        }
+
+
+
+        function updateSenshuUI() {
+
+            if(!currentMatch) return;
+
+            let btnAka = document.getElementById('btn-ctrl-senshu-aka');
+
+            let btnAo = document.getElementById('btn-ctrl-senshu-ao');
+
+            let badgeAka = document.getElementById('admin-preview-senshu-aka-badge');
+
+            let badgeAo = document.getElementById('admin-preview-senshu-ao-badge');
+
+
+
+            if(btnAka) {
+
+                if(currentMatch.senshuAka) {
+
+                    btnAka.classList.remove('bg-red-600', 'text-white');
+
+                    btnAka.classList.add('bg-yellow-400', 'text-black', 'border-2', 'border-black');
+
+                    btnAka.innerText = '✓ SENSHU (Đỏ)';
+
+                } else {
+
+                    btnAka.classList.add('bg-red-600', 'text-white');
+
+                    btnAka.classList.remove('bg-yellow-400', 'text-black', 'border-2', 'border-black');
+
+                    btnAka.innerText = 'Senshu';
+
+                }
+
+            }
+
+            if(btnAo) {
+
+                if(currentMatch.senshuAo) {
+
+                    btnAo.classList.remove('bg-blue-600', 'text-white');
+
+                    btnAo.classList.add('bg-yellow-400', 'text-black', 'border-2', 'border-black');
+
+                    btnAo.innerText = '✓ SENSHU (Xanh)';
+
+                } else {
+
+                    btnAo.classList.add('bg-blue-600', 'text-white');
+
+                    btnAo.classList.remove('bg-yellow-400', 'text-black', 'border-2', 'border-black');
+
+                    btnAo.innerText = 'Senshu';
+
+                }
+
+            }
+
+            if(badgeAka) badgeAka.classList.toggle('hidden', !currentMatch.senshuAka);
+
+            if(badgeAo) badgeAo.classList.toggle('hidden', !currentMatch.senshuAo);
+
+        }
+
+
+
+        function declareWinner(faction) {
+
+            if(!currentMatch) return;
+
+            
+
+            let isTeamMatch = false;
+
+            let cObj = appData.contents.find(c => c.name === activeContentNameForAudience);
+
+            if (cObj && cObj.category.toLowerCase().includes('đồng đội')) {
+
+                isTeamMatch = true;
+
+            }
+
+
+
+            if (isTeamMatch) {
+
+                if(faction === 'aka') {
+
+                    currentMatch.teamScoreAka = (currentMatch.teamScoreAka || 0) + 1;
+
+                } else {
+
+                    currentMatch.teamScoreAo = (currentMatch.teamScoreAo || 0) + 1;
+
+                }
+
+                document.getElementById('admin-team-score-aka').innerText = currentMatch.teamScoreAka || 0;
+
+                document.getElementById('admin-team-score-ao').innerText = currentMatch.teamScoreAo || 0;
+
+                
+
+                logAction(faction, `Thắng 1 trận đơn đồng đội! Tỷ số đội: ${currentMatch.teamScoreAka} - ${currentMatch.teamScoreAo}`);
+
+                saveDataWithoutRerenderingScores();
+
+                updateAudienceWindow();
+
+                alert(`Đội ${faction === 'aka' ? 'ĐỎ (AKA)' : 'XANH (AO)'} đã thắng 1 trận đơn! Tỷ số đồng đội hiện tại: ${currentMatch.teamScoreAka} - ${currentMatch.teamScoreAo}`);
+
+                return;
+
+            }
+
+
+
+            let winner = faction === 'aka' ? currentMatch.aka : currentMatch.ao;
+
+            currentMatch.winner = winner;
+
+            
+
+            promoteWinnerToNextRound(winner);
+
+            saveDataWithoutRerenderingScores();
+
+            updateAudienceWindow();
+
+            
+
+            setTimeout(() => {
+
+                alert(`Đã xác định ${faction === 'aka' ? 'ĐỎ (AKA)' : 'XANH (AO)'} THẮNG trận đấu!`);
+
+                openBracketDetail(activeContentNameForAudience);
+
+            }, 300);
+
+        }
+
+
+
+        function finishEntireTeamOrBracketMatch() {
+
+            if(!currentMatch) return alert("Vui lòng chọn trận đấu trước!");
+
+            
+
+            let cObj = appData.contents.find(c => c.name === activeContentNameForAudience);
+
+            let isTeamMatch = cObj && cObj.category.toLowerCase().includes('đồng đội');
+
+
+
+            if (isTeamMatch) {
+
+                let tAka = currentMatch.teamScoreAka || 0;
+
+                let tAo = currentMatch.teamScoreAo || 0;
+
+                if (tAka === tAo) {
+
+                    return alert("Tỷ số các trận đơn đang hòa nhau, cần phân định thắng thua chung cuộc trước khi kết thúc!");
+
+                }
+
+                let winner = tAka > tAo ? currentMatch.aka : currentMatch.ao;
+
+                currentMatch.winner = winner;
+
+                promoteWinnerToNextRound(winner);
+
+                saveData();
+
+                alert(`🏁 Đã kết thúc toàn bộ trận đồng đội! Đội thắng chung cuộc: ${winner.unit || winner.name} (${tAka} - ${tAo})`);
+
+                openBracketDetail(activeContentNameForAudience);
+
+                return;
+
+            }
+
+
+
+            let sAka = currentMatch.scoreAka || 0;
+
+            let sAo = currentMatch.scoreAo || 0;
+
+            if (sAka === sAo && !currentMatch.senshuAka && !currentMatch.senshuAo) {
+
+                return alert("Tỷ số đang hòa và chưa có Senshu, vui lòng chọn bên thắng hoặc Senshu trước!");
+
+            }
+
+            let winner = sAka >= sAo ? currentMatch.aka : currentMatch.ao;
+
+            currentMatch.winner = winner;
+
+            promoteWinnerToNextRound(winner);
+
+            saveData();
+
+            alert(`🏁 Đã kết thúc toàn bộ trận đấu! Người thắng: ${winner.name || winner.unit}`);
+
+            openBracketDetail(activeContentNameForAudience);
+
+        }
+
+
+
+        function updateTimerDisplay() {
+
+            let totalSeconds = Math.max(0, Math.floor(totalMilliseconds / 1000));
+
+            let tenths = Math.floor((totalMilliseconds % 1000) / 100);
+
+            let minutes = Math.floor(totalSeconds / 60);
+
+            let seconds = totalSeconds % 60;
+
+            
+
+            let formattedTime = (minutes < 10 ? "0" : "") + minutes + ":" + (seconds < 10 ? "0" : "") + seconds + "." + tenths;
+
+            let timerEl = document.getElementById('admin-preview-timer');
+
+            if(timerEl) {
+
+                timerEl.innerText = formattedTime;
+
+                if (totalSeconds <= 15 && totalSeconds > 0) { timerEl.style.color = "#ff4d4d"; }
+
+                else if (isTimerRunning) { timerEl.style.color = "#ffffff"; }
+
+                else { timerEl.style.color = "#ffc107"; }
+
+            }
+
+            updateAudienceWindow();
+
+        }
+
+
+
+        function startTimer() {
+
+            if(isTimerRunning || totalMilliseconds <= 0) return;
+
+            isTimerRunning = true;
+
+            updateTimerDisplay();
+
+            let lastSecond = Math.floor(totalMilliseconds / 1000);
+
+
+
+            timerInterval = setInterval(() => {
+
+                if(totalMilliseconds > 0) {
+
+                    totalMilliseconds -= 100;
+
+                    let currentSecond = Math.floor(totalMilliseconds / 1000);
+
+                    if (currentSecond === 15 && lastSecond !== 15) { playLoudBeep(1100, 500); }
+
+                    if (totalMilliseconds <= 0) {
+
+                        totalMilliseconds = 0;
+
+                        playLoudBeep(1200, 700);
+
+                        clearInterval(timerInterval);
+
+                        isTimerRunning = false;
+
+                    }
+
+                    lastSecond = currentSecond;
+
+                    updateTimerDisplay();
+
+                } else {
+
+                    clearInterval(timerInterval);
+
+                    isTimerRunning = false;
+
+                    updateTimerDisplay();
+
+                }
+
+            }, 100);
+
+        }
+
+
+
+        function pauseTimer() { clearInterval(timerInterval); isTimerRunning = false; updateTimerDisplay(); }
+
+
+
+        function resetTimer() {
+
+            pauseTimer(); 
+
+            let inputVal = parseInt(document.getElementById('input-custom-seconds').value) || 90;
+
+            totalMilliseconds = inputVal * 1000;
+
+            updateTimerDisplay();
+
+        }
+
+
+
+        function adjustTime(offset) {
+
+            let input = document.getElementById('input-custom-seconds');
+
+            let val = parseInt(input.value) || 0;
+
+            let newVal = val + offset;
+
+            if(newVal < 0) newVal = 0;
+
+            input.value = newVal;
+
+            if(!isTimerRunning) { totalMilliseconds = newVal * 1000; updateTimerDisplay(); }
+
+        }
+
+
+
+        function applyCustomTimer() { resetTimer(); }
+
+
+
+        function finishIndividualMatch() {
+
+            if(!currentMatch) return;
+
+            
+
+            let cObj = appData.contents.find(c => c.name === activeContentNameForAudience);
+
+            let isTeamMatch = cObj && cObj.category.toLowerCase().includes('đồng đội');
+
+
+
+            if (isTeamMatch) {
+
+                let tAka = currentMatch.teamScoreAka || 0;
+
+                let tAo = currentMatch.teamScoreAo || 0;
+
+                if(tAka === tAo) return alert("Tỷ số các trận đấu đơn đang hòa nhau, cần phân định thắng thua trước khi kết thúc trận đồng đội!");
+
+                let winner = tAka > tAo ? currentMatch.aka : currentMatch.ao;
+
+                currentMatch.winner = winner;
+
+                promoteWinnerToNextRound(winner);
+
+                saveData();
+
+                alert(`Trận đồng đội kết thúc! Đội thắng chung cuộc: ${winner.unit || winner.name}`);
+
+                openBracketDetail(activeContentNameForAudience);
+
+                return;
+
+            }
+
+
+
+            let winner = currentMatch.scoreAka >= currentMatch.scoreAo ? currentMatch.aka : currentMatch.ao;
+
+            currentMatch.winner = winner;
+
+            promoteWinnerToNextRound(winner);
+
+            saveData();
+
+            alert("Trận đấu kết thúc!");
+
+            openBracketDetail(activeContentNameForAudience);
+
+        }
+
+
+
+        function promoteWinnerToNextRound(winner) {
+
+            let loser = ((winner.name && winner.name === currentMatch.aka.name) || (winner.unit && winner.unit === currentMatch.aka.unit)) ? currentMatch.ao : currentMatch.aka;
+
+            appData.matches.forEach(b => {
+
+                if(!b.rounds) return;
+
+                for(let r=0; r<b.rounds.length-1; r++){
+
+                    let idx = b.rounds[r].findIndex(m => m.id === currentMatch.id);
+
+                    if(idx !== -1) {
+
+                        let nextM = b.rounds[r+1][Math.floor(idx/2)];
+
+                        if(nextM) { if(idx%2===0) nextM.aka = winner; else nextM.ao = winner; }
+
+                    }
+
+                }
+
+            });
+
+            let targetB = appData.matches.find(b => b.rounds?.some(rnd => rnd.some(m => m.id === currentMatch.id)));
+
+            if(targetB) {
+
+                appData.results = appData.results.filter(x => x.contentName !== targetB.content);
+
+                appData.results.push({ contentName: targetB.content, gold: winner, silver: loser });
+
+            }
+
+        }
+
+
+
+        function openPopupDisplay() {
+
+            if (audienceWindow && !audienceWindow.closed) { audienceWindow.focus(); return; }
+
+            audienceWindow = window.open("", "AudienceScreen", "width=1280,height=720");
+
+            updateAudienceWindow();
+
+        }
+
+
+
+        function updateAudienceWindow() {
+
+            if (!audienceWindow || audienceWindow.closed) return;
+
+            let title = appData.tournamentTitle || 'GIẢI KARATE MỞ RỘNG';
+
+            let contentName = activeContentNameForAudience || 'NỘI DUNG THI ĐẤU';
+
+            let logoSrc = getAppLogoSrc();
+
+            let matName = currentMatch?.mat || 'Thảm 1';
+
+            
+
+            let akaName = currentMatch ? (currentMatch.aka.name || currentMatch.aka.unit || 'VĐV/Đội ĐỎ (AKA)') : 'VĐV/Đội ĐỎ (AKA)';
+
+            let aoName = currentMatch ? (currentMatch.ao.name || currentMatch.ao.unit || 'VĐV/Đội XANH (AO)') : 'VĐV/Đội XANH (AO)';
+
+            let akaClub = currentMatch?.aka?.club || '';
+
+            let aoClub = currentMatch?.ao?.club || '';
+
+            let sAka = currentMatch ? (currentMatch.scoreAka || 0) : 0;
+
+            let sAo = currentMatch ? (currentMatch.scoreAo || 0) : 0;
+
+            
+
+            let teamScoreDisplayHTML = '';
+
+            let cObj = appData.contents.find(c => c.name === activeContentNameForAudience);
+
+            if (cObj && cObj.category.toLowerCase().includes('đồng đội')) {
+
+                let tAka = currentMatch ? (currentMatch.teamScoreAka || 0) : 0;
+
+                let tAo = currentMatch ? (currentMatch.teamScoreAo || 0) : 0;
+
+                teamScoreDisplayHTML = `<div style="background: rgba(220, 38, 38, 0.2); border: 2px solid #ef4444; padding: 10px 25px; border-radius: 15px; text-align: center;"><div style="font-size: 14px; font-weight: bold; color: #facc15; text-transform: uppercase;">Tỷ số trận thắng đồng đội</div><div style="font-size: 38px; font-weight: 900; color: #ffffff;">${tAka} - ${tAo}</div></div>`;
+
+            }
+
+
+
+            let pAkaArr = currentMatch?.penaltiesAka || [];
+
+            let pAoArr = currentMatch?.penaltiesAo || [];
+
+
+
+            let hasAkaC1 = pAkaArr.includes('C1');
+
+            let hasAkaC2 = pAkaArr.includes('C2');
+
+            let hasAkaC3 = pAkaArr.includes('C3');
+
+            let hasAkaHC = pAkaArr.includes('HC');
+
+            let hasAkaHS = pAkaArr.includes('HS');
+
+
+
+            let hasAoC1 = pAoArr.includes('C1');
+
+            let hasAoC2 = pAoArr.includes('C2');
+
+            let hasAoC3 = pAoArr.includes('C3');
+
+            let hasAoHC = pAoArr.includes('HC');
+
+            let hasAoHS = pAoArr.includes('HS');
+
+
+
+            let pAkaBoxesHTML = `
+
+                <div style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid ${hasAkaC1 ? '#f59e0b' : '#7f1d1d'}; background: ${hasAkaC1 ? '#f59e0b' : 'rgba(127, 29, 29, 0.4)'}; color: ${hasAkaC1 ? '#000' : 'transparent'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px;">${hasAkaC1 ? 'C1' : ''}</div>
+
+                <div style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid ${hasAkaC2 ? '#f59e0b' : '#7f1d1d'}; background: ${hasAkaC2 ? '#f59e0b' : 'rgba(127, 29, 29, 0.4)'}; color: ${hasAkaC2 ? '#000' : 'transparent'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px;">${hasAkaC2 ? 'C2' : ''}</div>
+
+                <div style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid ${hasAkaC3 ? '#f59e0b' : '#7f1d1d'}; background: ${hasAkaC3 ? '#f59e0b' : 'rgba(127, 29, 29, 0.4)'}; color: ${hasAkaC3 ? '#000' : 'transparent'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px;">${hasAkaC3 ? 'C3' : ''}</div>
+
+                <div style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid ${hasAkaHC ? '#f59e0b' : '#7f1d1d'}; background: ${hasAkaHC ? '#f59e0b' : 'rgba(127, 29, 29, 0.4)'}; color: ${hasAkaHC ? '#000' : 'transparent'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px;">${hasAkaHC ? 'HC' : ''}</div>
+
+                <div style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid ${hasAkaHS ? '#f59e0b' : '#7f1d1d'}; background: ${hasAkaHS ? '#f59e0b' : 'rgba(127, 29, 29, 0.4)'}; color: ${hasAkaHS ? '#000' : 'transparent'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px;">${hasAkaHS ? 'HS' : ''}</div>
+
+            `;
+
+
+
+            let pAoBoxesHTML = `
+
+                <div style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid ${hasAoC1 ? '#f59e0b' : '#1e3a8a'}; background: ${hasAoC1 ? '#f59e0b' : 'rgba(30, 58, 138, 0.4)'}; color: ${hasAoC1 ? '#000' : 'transparent'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px;">${hasAoC1 ? 'C1' : ''}</div>
+
+                <div style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid ${hasAoC2 ? '#f59e0b' : '#1e3a8a'}; background: ${hasAoC2 ? '#f59e0b' : 'rgba(30, 58, 138, 0.4)'}; color: ${hasAoC2 ? '#000' : 'transparent'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px;">${hasAoC2 ? 'C2' : ''}</div>
+
+                <div style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid ${hasAoC3 ? '#f59e0b' : '#1e3a8a'}; background: ${hasAoC3 ? '#f59e0b' : 'rgba(30, 58, 138, 0.4)'}; color: ${hasAoC3 ? '#000' : 'transparent'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px;">${hasAoC3 ? 'C3' : ''}</div>
+
+                <div style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid ${hasAoHC ? '#f59e0b' : '#1e3a8a'}; background: ${hasAoHC ? '#f59e0b' : 'rgba(30, 58, 138, 0.4)'}; color: ${hasAoHC ? '#000' : 'transparent'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px;">${hasAoHC ? 'HC' : ''}</div>
+
+                <div style="width: 32px; height: 32px; border-radius: 6px; border: 1px solid ${hasAoHS ? '#f59e0b' : '#1e3a8a'}; background: ${hasAoHS ? '#f59e0b' : 'rgba(30, 58, 138, 0.4)'}; color: ${hasAoHS ? '#000' : 'transparent'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px;">${hasAoHS ? 'HS' : ''}</div>
+
+            `;
+
+
+
+            let senshuAka = currentMatch?.senshuAka ? '<span style="background:#eab308; color:#000; padding:2px 8px; border-radius:6px; font-size:18px; margin-left:12px; font-weight:900;">SENSHU</span>' : '';
+
+            let senshuAo = currentMatch?.senshuAo ? '<span style="background:#eab308; color:#000; padding:2px 8px; border-radius:6px; font-size:18px; margin-left:12px; font-weight:900;">SENSHU</span>' : '';
+
+            let t = document.getElementById('admin-preview-timer')?.innerText || "01:30.0";
+
+
+
+            let isAkaWinner = false;
+
+            let isAoWinner = false;
+
+            if (currentMatch && currentMatch.winner) {
+
+                let w = currentMatch.winner;
+
+                let isWinnerAka = (w.name && currentMatch.aka.name && w.name === currentMatch.aka.name) || (w.unit && currentMatch.aka.unit && w.unit === currentMatch.aka.unit);
+
+                let isWinnerAo = (w.name && currentMatch.ao.name && w.name === currentMatch.ao.name) || (w.unit && currentMatch.ao.unit && w.unit === currentMatch.ao.unit);
+
+                
+
+                if (isWinnerAka) {
+
+                    isAkaWinner = true;
+
+                    isAoWinner = false;
+
+                } else if (isWinnerAo) {
+
+                    isAkaWinner = false;
+
+                    isAoWinner = true;
+
+                }
+
+            }
+
+            
+
+            let blinkStyle = `
+
+                @keyframes blink-aka { 0% { opacity: 1; border-color: #dc2626; box-shadow: 0 0 35px rgba(220, 38, 38, 0.9); } 50% { opacity: 0.2; border-color: #1e293b; box-shadow: none; } 100% { opacity: 1; border-color: #dc2626; box-shadow: 0 0 35px rgba(220, 38, 38, 0.9); } }
+
+                @keyframes blink-ao { 0% { opacity: 1; border-color: #2563eb; box-shadow: 0 0 35px rgba(37, 99, 235, 0.9); } 50% { opacity: 0.2; border-color: #1e293b; box-shadow: none; } 100% { opacity: 1; border-color: #2563eb; box-shadow: 0 0 35px rgba(37, 99, 235, 0.9); } }
+
+                .winner-blink-aka { animation: blink-aka 1s infinite ease-in-out; border: 4px solid #dc2626 !important; }
+
+                .winner-blink-ao { animation: blink-ao 1s infinite ease-in-out; border: 4px solid #2563eb !important; }
+
+            `;
+
+
+
+            audienceWindow.document.open();
+
+            audienceWindow.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><style>${blinkStyle}</style><script src="https://cdn.tailwindcss.com"><\/script></head>
+
+            <body class="bg-black text-white h-screen flex flex-col justify-between select-none overflow-hidden font-sans">
+
+                <div class="bg-black text-center py-2.5 border-b border-yellow-500/40 flex justify-between items-center px-8">
+
+                    <div>
+
+                        <div class="text-yellow-400 font-bold text-base uppercase tracking-wider text-left">${title}</div>
+
+                        <div class="text-white font-black text-2xl uppercase mt-0.5 text-left">${contentName}</div>
+
+                    </div>
+
+                    <div>${teamScoreDisplayHTML}</div>
+
+                </div>
+
+                <div class="flex-1 flex flex-col justify-between px-4 py-2 gap-2">
+
+                    <div class="flex-1 bg-gradient-to-r from-red-950/80 to-slate-900 rounded-2xl border-2 border-red-900/60 flex items-center justify-between px-8 ${isAkaWinner ? 'winner-blink-aka' : ''}">
+
+                        <div class="space-y-2 flex-1">
+
+                            <div class="text-5xl font-black text-red-500 uppercase tracking-wide truncate flex items-center">${akaName} ${senshuAka}</div>
+
+                            <div class="text-2xl font-bold text-red-300 uppercase">${akaClub}</div>
+
+                            <div class="flex space-x-2 pt-1">${pAkaBoxesHTML}</div>
+
+                        </div>
+
+                        <div class="text-red-500 font-black text-9xl">${sAka}</div>
+
+                    </div>
+
+                    <div class="flex-1 bg-gradient-to-r from-blue-950/80 to-slate-900 rounded-2xl border-2 border-blue-900/60 flex items-center justify-between px-8 ${isAoWinner ? 'winner-blink-ao' : ''}">
+
+                        <div class="space-y-2 flex-1">
+
+                            <div class="text-5xl font-black text-blue-400 uppercase tracking-wide truncate flex items-center">${aoName} ${senshuAo}</div>
+
+                            <div class="text-2xl font-bold text-blue-200 uppercase">${aoClub}</div>
+
+                            <div class="flex space-x-2 pt-1">${pAoBoxesHTML}</div>
+
+                        </div>
+
+                        <div class="text-blue-400 font-black text-9xl">${sAo}</div>
+
+                    </div>
+
+                </div>
+
+                <div class="bg-black py-3 px-8 flex justify-between items-center border-t border-slate-800">
+
+                    <div class="flex items-center space-x-6">
+
+                        <div class="border-2 border-yellow-500 rounded-xl px-6 py-2 bg-yellow-500/10">
+
+                            <span class="text-yellow-400 font-black text-2xl uppercase tracking-widest">${matName}</span>
+
+                        </div>
+
+                        <div class="flex items-center space-x-3">
+
+                            <img src="${logoSrc}" class="w-14 h-14 object-contain rounded-full bg-white p-1 border border-yellow-500">
+
+                            <div>
+
+                                <div class="text-red-500 font-black text-xs uppercase">DNT KARATE DATASPORT</div>
+
+                                <div class="text-slate-400 text-[10px]">Hệ Thống Quản Lý WKF</div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="text-8xl font-mono font-black text-yellow-400 tracking-wider">${t}</div>
+
+                </div>
+
+            </body></html>`);
+
+            audienceWindow.document.close();
+
+        }
+
+
+
+        function populateScoreboardContentDropdown() {
+
+            let sel = document.getElementById('sb-select-content');
+
+            if(!sel) return;
+
+            let opts = '<option value="">-- Chọn --</option>';
+
+            appData.contents.forEach(c => opts += `<option value="${c.name}">${c.name}</option>`);
+
+            sel.innerHTML = opts;
+
+        }
+
+
+
+        function onScoreboardContentChange() {
+
+            let name = document.getElementById('sb-select-content').value;
+
+            let mSel = document.getElementById('sb-select-match');
+
+            activeContentNameForAudience = name;
+
+            let bracket = appData.matches.find(m => m.content === name);
+
+            if(!bracket) return mSel.innerHTML = '<option value="">Trống</option>';
+
+            let html = '<option value="">-- Chọn Trận --</option>';
+
+            bracket.rounds.forEach((round, r) => {
+
+                round.forEach(m => {
+
+                    let akaName = m.aka.name || m.aka.unit || 'TBD';
+
+                    let aoName = m.ao.name || m.ao.unit || 'TBD';
+
+                    html += `<option value="${m.id}">[Vòng ${r+1}] Trận ${m.matchNum}: ${akaName} vs ${aoName}</option>`;
+
+                });
+
+            });
+
+            mSel.innerHTML = html;
+
+        }
+
+
+
+        function onScoreboardMatchChange() {
+
+            let id = document.getElementById('sb-select-match').value;
+
+            if(id) selectMatchOnScoreboard(id);
+
+        }
+
+
+
+        function selectMatchOnScoreboard(id) {
+
+            currentMatch = null;
+
+            for(let b of appData.matches) {
+
+                for(let r of b.rounds||[]) {
+
+                    let m = r.find(x => x.id === id);
+
+                    if(m) { currentMatch = m; break; }
+
+                }
+
+                if(currentMatch) break;
+
+            }
+
+            if(!currentMatch) return;
+
+            
+
+            document.getElementById('admin-preview-aka-name').innerText = currentMatch.aka.name || currentMatch.aka.unit || 'TBD';
+
+            document.getElementById('admin-preview-aka-club').innerText = currentMatch.aka.club ? `(${currentMatch.aka.club})` : '';
+
+            document.getElementById('admin-preview-ao-name').innerText = currentMatch.ao.name || currentMatch.ao.unit || 'TBD';
+
+            document.getElementById('admin-preview-ao-club').innerText = currentMatch.ao.club ? `(${currentMatch.ao.club})` : '';
+
+
+
+            document.getElementById('admin-preview-aka-score').innerText = currentMatch.scoreAka || 0;
+
+            document.getElementById('admin-preview-ao-score').innerText = currentMatch.scoreAo || 0;
+
+            document.getElementById('admin-preview-content-title').innerText = activeContentNameForAudience;
+
+            
+
+            let cObj = appData.contents.find(c => c.name === activeContentNameForAudience);
+
+            let teamBox = document.getElementById('team-matchup-selector-box');
+
+            let teamScoreWrapper = document.getElementById('admin-team-score-wrapper');
+
+
+
+            if (cObj && cObj.category.toLowerCase().includes('đồng đội')) {
+
+                teamBox.classList.remove('hidden');
+
+                teamScoreWrapper.classList.remove('hidden');
+
+                document.getElementById('admin-team-score-aka').innerText = currentMatch.teamScoreAka || 0;
+
+                document.getElementById('admin-team-score-ao').innerText = currentMatch.teamScoreAo || 0;
+
+
+
+                let teamAkaObj = appData.teams.find(t => t.unit === currentMatch.aka.unit);
+
+                let teamAoObj = appData.teams.find(t => t.unit === currentMatch.ao.unit);
+
+
+
+                let akaMemberSel = document.getElementById('select-team-member-aka');
+
+                let aoMemberSel = document.getElementById('select-team-member-ao');
+
+
+
+                let akaHtml = '<option value="">-- Chọn VĐV Đội Đỏ ra sân --</option>';
+
+                if (teamAkaObj && teamAkaObj.mainMembers) {
+
+                    teamAkaObj.mainMembers.forEach(m => akaHtml += `<option value="${m}">${m} (${teamAkaObj.unit})</option>`);
+
+                }
+
+                akaMemberSel.innerHTML = akaHtml;
+
+
+
+                let aoHtml = '<option value="">-- Chọn VĐV Đội Xanh ra sân --</option>';
+
+                if (teamAoObj && teamAoObj.mainMembers) {
+
+                    teamAoObj.mainMembers.forEach(m => aoHtml += `<option value="${m}">${m} (${teamAoObj.unit})</option>`);
+
+                }
+
+                aoMemberSel.innerHTML = aoHtml;
+
+            } else {
+
+                teamBox.classList.add('hidden');
+
+                teamScoreWrapper.classList.add('hidden');
+
+            }
+
+
+
+            updateSenshuUI();
+
+            updatePenaltiesUI();
+
+            actionHistory = [];
+
+            renderActionHistory();
+
+            resetTimer();
+
+        }
+
+
+
+        function toggleScoreboardMode() {
+
+            let mode = document.getElementById('sb-mode-select').value;
+
+            document.getElementById('kata-control-section').classList.toggle('hidden', mode !== 'kata');
+
+            document.getElementById('kumite-control-section').classList.toggle('hidden', mode === 'kata');
+
+        }
+
+
+
+        function initKataDropdowns() { filterKataOptions('aka'); filterKataOptions('ao'); }
+
+        function filterKataOptions(code) {
+
+            let sel = document.getElementById(`select-kata-${code}`);
+
+            if(!sel) return;
+
+            let html = '<option value="">-- Chọn Kata --</option>';
+
+            KATA_LIST.forEach(k => html += `<option value="${k.id}">${k.name}</option>`);
+
+            sel.innerHTML = html;
+
+        }
+
+        function onKataSelected(code) {}
+
+
+
+        function updateContentMat(id, mat) {
+
+            let c = appData.contents.find(x => x.id === id);
+
+            if(c) { c.mat = mat; saveData(); }
+
+        }
+
+        function deleteContent(id) { appData.contents = appData.contents.filter(c => c.id !== id); saveData(); }
+
+
+
+        function addNewAthlete() {
+
+            let nameInput = document.getElementById('ath-name');
+
+            let clubInput = document.getElementById('ath-club');
+
+            let name = nameInput.value.trim();
+
+            let club = clubInput.value.trim();
+
+            
+
+            if(!name || !club) return alert("Nhập đủ tên VĐV và CLB/Đơn vị!");
+
+            
+
+            appData.athletes.push({
+
+                id: Date.now() + Math.random(), 
+
+                name, 
+
+                dob: document.getElementById('ath-dob').value.trim(),
+
+                gender: document.getElementById('ath-gender').value, 
+
+                weight: document.getElementById('ath-weight').value.trim() || '0',
+
+                content: document.getElementById('ath-content').value, 
+
+                club, 
+
+                isSeed: document.getElementById('ath-is-seed').checked
+
+            });
+
+            
+
+            nameInput.value = '';
+
+            document.getElementById('ath-dob').value = '';
+
+            document.getElementById('ath-weight').value = '';
+
+            document.getElementById('ath-is-seed').checked = false;
+
+            
+
+            saveDataWithoutRerenderingScores();
+
+            
+
+            let athBody = document.getElementById('athlete-table-body');
+
+            let athCount = document.getElementById('total-athletes-count');
+
+            if(athCount) athCount.innerText = appData.athletes.length;
+
+            
+
+            if(athBody) {
+
+                let aHtml = ''; 
+
+                appData.athletes.forEach(a => {
+
+                    aHtml += `<tr class="border-b"><td class="p-2 font-bold">${a.name} ${a.isSeed?'<span class="bg-yellow-400 text-black px-1 text-[9px] font-bold rounded">SEED</span>':''}</td><td class="p-2">${a.dob||'---'}</td><td class="p-2">${a.content}</td><td class="p-2 text-red-600 font-bold">${a.club}</td><td class="p-2 text-center"><button onclick="deleteAthlete(${a.id})" class="text-red-600 cursor-pointer"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+
+                });
+
+                athBody.innerHTML = aHtml;
+
+            }
+
+            nameInput.focus();
+
+        }
+
+
+
+        function deleteAthlete(id) { 
+
+            appData.athletes = appData.athletes.filter(a => a.id !== id); 
+
+            saveData(); 
+
+        }
+
+
+
+        function addNewTeam() {
+
+            let unit = document.getElementById('team-unit').value.trim();
+
+            let content = document.getElementById('team-content').value;
+
+            let mainRaw = document.getElementById('team-main-members').value.trim();
+
+            let subRaw = document.getElementById('team-sub-members').value.trim();
+
+            if(!unit || !content) return alert("Vui lòng nhập tên Đội/Đoàn và chọn nội dung đồng đội!");
+
+            let mainMembers = mainRaw.split(/,|\n/).map(m => m.trim()).filter(Boolean);
+
+            let subMembers = subRaw.split(/,|\n/).map(m => m.trim()).filter(Boolean);
+
+            if(mainMembers.length === 0) return alert("Vui lòng nhập danh sách VĐV chính thức!");
+
+            
+
+            appData.teams.push({
+
+                id: Date.now() + Math.random(), unit, content, mainMembers, subMembers, isSeed: document.getElementById('team-is-seed').checked
+
+            });
+
+            document.getElementById('team-unit').value = '';
+
+            document.getElementById('team-main-members').value = '';
+
+            document.getElementById('team-sub-members').value = '';
+
+            document.getElementById('team-is-seed').checked = false;
+
+            
+
+            saveDataWithoutRerenderingScores();
+
+            
+
+            let teamBody = document.getElementById('team-table-body');
+
+            let teamCount = document.getElementById('total-teams-count');
+
+            if(teamCount) teamCount.innerText = appData.teams.length;
+
+            if(teamBody) {
+
+                let tHtml = ''; 
+
+                appData.teams.forEach(t => {
+
+                    let mainStr = (t.mainMembers||[]).join(', ');
+
+                    let subStr = (t.subMembers||[]).length > 0 ? ` (Dự bị: ${(t.subMembers||[]).join(', ')})` : '';
+
+                    tHtml += `<tr class="border-b"><td class="p-2 font-bold text-blue-700">${t.unit} ${t.isSeed?'<span class="bg-yellow-400 text-black px-1 text-[9px] font-bold rounded">SEED</span>':''}</td><td class="p-2">${t.content}</td><td class="p-2 text-xs text-slate-600"><strong class="text-slate-800">${mainStr}</strong>${subStr}</td><td class="p-2 text-center"><button onclick="deleteTeam(${t.id})" class="text-red-600 cursor-pointer"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+
+                });
+
+                teamBody.innerHTML = tHtml;
+
+            }
+
+            document.getElementById('team-unit').focus();
+
+        }
+
+
+
+        function deleteTeam(id) {
+
+            appData.teams = appData.teams.filter(t => t.id !== id);
+
+            saveData();
+
+        }
+
+
+
+        function renderAll() {
+
+            let logo = getAppLogoSrc();
+
+            ['modal-app-logo', 'header-app-logo', 'secretary-app-logo'].forEach(id => {
+
+                let el = document.getElementById(id); if(el) el.src = logo;
+
+            });
+
+            document.getElementById('header-tournament-title').innerText = appData.tournamentTitle;
+
+            
+
+            let cHtml = ''; appData.contents.forEach((c, i) => {
+
+                cHtml += `<tr class="border-b"><td class="p-3">${i+1}</td><td class="p-3 font-bold">${c.name}</td><td class="p-3">${c.category}</td><td class="p-3">${c.mat||'Thảm 1'}</td><td class="p-3 text-center"><button onclick="deleteContent(${c.id})" class="text-red-600 cursor-pointer"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+
+            });
+
+            let contentBody = document.getElementById('content-table-body');
+
+            if(contentBody) contentBody.innerHTML = cHtml;
+
+
+
+            let mHtml = ''; appData.contents.forEach((c, i) => {
+
+                mHtml += `<tr class="border-b"><td class="p-3">${i+1}</td><td class="p-3 font-bold">${c.name}</td><td class="p-3">${c.category}</td><td class="p-3"><select onchange="updateContentMat(${c.id}, this.value)" class="text-xs border rounded px-2 py-1 font-bold text-red-600 bg-white"><option value="Thảm 1" ${c.mat==='Thảm 1'?'selected':''}>Thảm 1</option><option value="Thảm 2" ${c.mat==='Thảm 2'?'selected':''}>Thảm 2</option><option value="Thảm 3" ${c.mat==='Thảm 3'?'selected':''}>Thảm 3</option></select></td></tr>`;
+
+            });
+
+            let matBody = document.getElementById('mat-table-body');
+
+            if(matBody) matBody.innerHTML = mHtml;
+
+
+
+            let indOpts = '<option value="">-- Chọn Nội Dung Cá Nhân --</option>';
+
+            let teamOpts = '<option value="">-- Chọn Nội Dung Đồng Đội --</option>';
+
+            appData.contents.forEach(c => {
+
+                let isTeam = c.category.toLowerCase().includes('đồng đội');
+
+                if(isTeam) teamOpts += `<option value="${c.name}">${c.name}</option>`;
+
+                else indOpts += `<option value="${c.name}">${c.name}</option>`;
+
+            });
+
+            let ac = document.getElementById('ath-content'); if(ac) ac.innerHTML = indOpts;
+
+            let tc = document.getElementById('team-content'); if(tc) tc.innerHTML = teamOpts;
+
+
+
+            renderContentBoxes();
+
+
+
+            let aHtml = ''; appData.athletes.forEach(a => {
+
+                aHtml += `<tr class="border-b"><td class="p-2 font-bold">${a.name} ${a.isSeed?'<span class="bg-yellow-400 text-black px-1 text-[9px] font-bold rounded">SEED</span>':''}</td><td class="p-2">${a.dob||'---'}</td><td class="p-2">${a.content}</td><td class="p-2 text-red-600 font-bold">${a.club}</td><td class="p-2 text-center"><button onclick="deleteAthlete(${a.id})" class="text-red-600 cursor-pointer"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+
+            });
+
+            let athBody = document.getElementById('athlete-table-body');
+
+            if(athBody) athBody.innerHTML = aHtml;
+
+            let athCount = document.getElementById('total-athletes-count');
+
+            if(athCount) athCount.innerText = appData.athletes.length;
+
+
+
+            let tHtml = ''; appData.teams.forEach(t => {
+
+                let mainStr = (t.mainMembers||[]).join(', ');
+
+                let subStr = (t.subMembers||[]).length > 0 ? ` (Dự bị: ${(t.subMembers||[]).join(', ')})` : '';
+
+                tHtml += `<tr class="border-b"><td class="p-2 font-bold text-blue-700">${t.unit} ${t.isSeed?'<span class="bg-yellow-400 text-black px-1 text-[9px] font-bold rounded">SEED</span>':''}</td><td class="p-2">${t.content}</td><td class="p-2 text-xs text-slate-600"><strong class="text-slate-800">${mainStr}</strong>${subStr}</td><td class="p-2 text-center"><button onclick="deleteTeam(${t.id})" class="text-red-600 cursor-pointer"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+
+            });
+
+            let teamBody = document.getElementById('team-table-body');
+
+            if(teamBody) teamBody.innerHTML = tHtml;
+
+            let teamCount = document.getElementById('total-teams-count');
+
+            if(teamCount) teamCount.innerText = appData.teams.length;
+
+
+
+            let resHtml = ''; 
+
+            appData.contents.forEach((c, i) => {
+
+                let res = appData.results.find(r => r.contentName === c.name);
+
+                resHtml += `<tr class="border-b text-center">
+
+                    <td class="p-2 border-r no-print"><input type="checkbox" class="content-select-cb w-4 h-4 text-red-600 rounded" data-content="${encodeURIComponent(c.name)}" checked></td>
+
+                    <td class="p-2 border-r font-bold">${i+1}</td>
+
+                    <td class="p-2 border-r text-left font-semibold">${c.name}</td>
+
+                    <td class="p-2 border-r font-bold text-yellow-600">${res?.gold?.name||res?.gold?.unit||'---'}</td>
+
+                    <td class="p-2 border-r">${res?.silver?.name||res?.silver?.unit||'---'}</td>
+
+                    <td class="p-2 border-r text-slate-400 italic">Đồng hạng</td>
+
+                    <td class="p-2 text-slate-400 italic">Đồng hạng</td>
+
+                </tr>`;
+
+            });
+
+            let medalFormBody = document.getElementById('medal-form-table-body');
+
+            if(medalFormBody) medalFormBody.innerHTML = resHtml || '<tr><td colspan="7" class="p-4 text-center text-slate-500">Chưa có kết quả</td></tr>';
+
+
+
+            let stats = {};
+
+            appData.athletes.forEach(a => { if(a.club) { if(!stats[a.club]) stats[a.club] = {g:0, s:0, b:0}; } });
+
+            appData.teams.forEach(t => { if(t.unit) { let unitKey = t.unit.split(' ')[0]; if(!stats[unitKey]) stats[unitKey] = {g:0, s:0, b:0}; } });
+
+            
+
+            appData.results.forEach(r => {
+
+                let gc = r.gold?.club || r.gold?.unit || r.gold?.name;
+
+                let sc = r.silver?.club || r.silver?.unit || r.silver?.name;
+
+                if(gc) { let key = gc.split(' ')[0]; if(!stats[key]) stats[key] = {g:0, s:0, b:0}; stats[key].g++; }
+
+                if(sc) { let key = sc.split(' ')[0]; if(!stats[key]) stats[key] = {g:0, s:0, b:0}; stats[key].s++; }
+
+            });
+
+            let sHtml = ''; Object.keys(stats).sort((a,b)=>stats[b].g - stats[a].g).forEach((cl, idx) => {
+
+                sHtml += `<tr class="border-b"><td class="p-3 border-r font-bold">#${idx+1}</td><td class="p-3 border-r font-semibold">${cl}</td><td class="p-3 border-r text-center font-bold text-yellow-600">${stats[cl].g}</td><td class="p-3 border-r text-center">${stats[cl].s}</td><td class="p-3 border-r text-center">${stats[cl].b}</td><td class="p-3 text-center font-bold">${stats[cl].g+stats[cl].s+stats[cl].b}</td></tr>`;
+
+            });
+
+            let medalTableBody = document.getElementById('medal-table-body');
+
+            if(medalTableBody) medalTableBody.innerHTML = sHtml || '<tr><td colspan="6" class="p-4 text-center text-slate-500">Trống</td></tr>';
+
+
+
+            let genderStat = {};
+
+            appData.athletes.forEach(a => {
+
+                let cl = a.club || 'Tự do';
+
+                if(!genderStat[cl]) genderStat[cl] = {m:0, f:0};
+
+                if((a.gender||'').toLowerCase() === 'nam') genderStat[cl].m++; else genderStat[cl].f++;
+
+            });
+
+            let gHtml = ''; let gIdx = 1;
+
+            Object.keys(genderStat).sort().forEach(cl => {
+
+                let m = genderStat[cl].m, f = genderStat[cl].f;
+
+                gHtml += `<tr class="border-b"><td class="p-3">${gIdx++}</td><td class="p-3 font-bold">${cl}</td><td class="p-3 text-center text-blue-600 font-bold">${m}</td><td class="p-3 text-center text-pink-600 font-bold">${f}</td><td class="p-3 text-center font-black">${m + f}</td></tr>`;
+
+            });
+
+            let clubGenderBody = document.getElementById('club-gender-stat-tbody');
+
+            if(clubGenderBody) clubGenderBody.innerHTML = gHtml || '<tr><td colspan="5" class="p-4 text-center text-slate-500">Chưa có dữ liệu vận động viên</td></tr>';
+
+        }
+
+
+
+        function toggleSelectAllContents(status) {
+
+            document.querySelectorAll('.content-select-cb').forEach(cb => cb.checked = status);
+
+        }
+
+
+
+        window.addEventListener('DOMContentLoaded', () => { 
+
+            loadServerIP(); 
+
+            updateTimerDisplay();
+
+            initAutoSocketConnection();
+
+        });
+
+
+
+        if(currentRole) { 
+
+            document.getElementById('role-selection-modal').classList.add('hidden'); 
+
+            setupRoleNavigation(); 
+
+        } else { 
+
+            document.getElementById('role-selection-modal').classList.remove('hidden'); 
+
+        }
+
+    </script>
+
+</body>
+
+</html>
